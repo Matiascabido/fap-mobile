@@ -256,7 +256,9 @@ export default function TutorialesScreen() {
       <VideoPlayerModal
         visible={Boolean(videoModal)}
         title={videoModal?.titulo}
-        embedUrl={videoModal?.embedUrl || videoModal?.videoUrl}
+        videoId={videoModal?.id}
+        embedUrl={videoModal?.embedUrl}
+        videoUrl={videoModal?.videoUrl}
         onClose={() => setVideoModal(null)}
       />
     </View>
