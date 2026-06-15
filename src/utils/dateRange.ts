@@ -1,21 +1,24 @@
 import { format } from 'date-fns';
 
-/** ISO local sin `Z` — el backend interpreta en zona horaria del gimnasio (POST turnos). */
+/** Zona del gimnasio (APP_TIMEZONE en backend). */
+const GYM_UTC_OFFSET = '-03:00';
+
+/** ISO con offset — evita el bug del backend al comparar datetimes naive vs aware. */
 export function toGymLocalDateTime(date: Date): string {
-  return format(date, "yyyy-MM-dd'T'HH:mm:ss");
+  return `${format(date, "yyyy-MM-dd'T'HH:mm:ss")}${GYM_UTC_OFFSET}`;
 }
 
 /**
  * Rango semanal para GET /turnos.
- * Solo fecha (YYYY-MM-DD) evita el bug del backend al comparar datetimes naive vs aware.
+ * Incluye offset explícito para que el backend pueda comparar con `hoy` sin TypeError.
  */
 export function weekRangeQueryParams(weekStart: Date, weekEnd: Date): {
   desde: string;
   hasta: string;
 } {
   return {
-    desde: format(weekStart, 'yyyy-MM-dd'),
-    hasta: format(weekEnd, 'yyyy-MM-dd'),
+    desde: `${format(weekStart, 'yyyy-MM-dd')}T00:00:00${GYM_UTC_OFFSET}`,
+    hasta: `${format(weekEnd, 'yyyy-MM-dd')}T23:59:59${GYM_UTC_OFFSET}`,
   };
 }
 

@@ -11,6 +11,18 @@ export class UnauthorizedSessionError extends Error {
   }
 }
 
+export class HttpRequestError extends Error {
+  readonly status: number;
+  readonly endpoint: string;
+
+  constructor(message: string, status: number, endpoint: string) {
+    super(message);
+    this.name = 'HttpRequestError';
+    this.status = status;
+    this.endpoint = endpoint;
+  }
+}
+
 // Callback para navegación (se setea desde el App Navigator)
 let navigationCallback: ((route: string) => void) | null = null;
 let unauthorizedCallback: (() => void) | null = null;
@@ -94,7 +106,7 @@ function messageFromApiBody(data: unknown, status: number, statusText: string): 
   if (typeof data === 'string' && data.trim()) {
     const raw = data.trim();
     if (status >= 500 && looksLikeServerTraceback(raw)) {
-      return 'Error interno del servidor. Intentá de nuevo en unos segundos.';
+      return `Error interno del servidor (${status}). Intentá de nuevo en unos segundos.`;
     }
     return raw;
   }
@@ -124,7 +136,7 @@ const MSG_HTTP_PERMISO_DENEGADO = 'No tenés los permisos necesarios para esta a
 
 function userFacingHttpErrorMessage(raw: string, status: number): string {
   if (status >= 500 && looksLikeServerTraceback(raw)) {
-    return 'Error interno del servidor. Intentá de nuevo en unos segundos.';
+    return `Error interno del servidor (${status}). Intentá de nuevo en unos segundos.`;
   }
   if (status === 403) {
     const lower = raw.toLowerCase();
@@ -241,8 +253,8 @@ export async function apiFetch<T>(
       if (!ctx?.suppressGlobalAlert) {
         showErrorAlert(message);
       }
-      
-      throw new Error(message);
+
+      throw new HttpRequestError(message, status, endpoint);
     }
     
     // Error de red u otro
@@ -282,8 +294,8 @@ export async function apiFetchWithResponse<T>(
       if (!ctx?.suppressGlobalAlert) {
         showErrorAlert(message);
       }
-      
-      throw new Error(message);
+
+      throw new HttpRequestError(message, status, endpoint);
     }
     
     const message = formatNetworkErrorMessage(error instanceof Error ? error.message : String(error));

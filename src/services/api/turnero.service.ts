@@ -1,4 +1,4 @@
-import { apiFetch, ApiFetchContext } from './http';
+import { apiFetch, ApiFetchContext, HttpRequestError } from './http';
 import { TurnoResponse, ListTurnosParams } from '../../types/turnero.types';
 
 function buildListQuery(
@@ -39,14 +39,31 @@ export interface TurnoCreateDTO {
 
 export const turneroService = {
   async list(params?: ListTurnosParams): Promise<TurnoResponse[]> {
-    const q = buildListQuery(params?.page ?? 1, params?.limit ?? 200, {
+    const extra: Record<string, string | undefined> = {
       desde: params?.desde ?? undefined,
       hasta: params?.hasta ?? undefined,
       email_socio: params?.email_socio ?? undefined,
       email_profesional: params?.email_profesional ?? undefined,
-    });
-    const data = await apiFetch<unknown>(`/turnos?${q}`, { method: 'GET' });
-    return normalizeTurnosList(data);
+    };
+    const ctx: ApiFetchContext = { suppressGlobalAlert: true };
+
+    const fetchPage = async (queryExtra: Record<string, string | undefined>) => {
+      const q = buildListQuery(params?.page ?? 1, params?.limit ?? 200, queryExtra);
+      return apiFetch<unknown>(`/turnos?${q}`, { method: 'GET' }, ctx);
+    };
+
+    try {
+      const data = await fetchPage(extra);
+      return normalizeTurnosList(data);
+    } catch (error) {
+      // Backend falla al comparar `desde` pasado con `hoy` (naive vs aware).
+      if (error instanceof HttpRequestError && error.status >= 500 && extra.desde) {
+        const { desde: _omit, ...withoutDesde } = extra;
+        const data = await fetchPage(withoutDesde);
+        return normalizeTurnosList(data);
+      }
+      throw error;
+    }
   },
 
   async create(dto: TurnoCreateDTO): Promise<TurnoResponse[]> {

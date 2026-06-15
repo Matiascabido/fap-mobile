@@ -22,7 +22,7 @@ import {
 import { es } from 'date-fns/locale';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { turneroService } from '../../services/api/turnero.service';
-import { UnauthorizedSessionError } from '../../services/api/http';
+import { HttpRequestError, UnauthorizedSessionError } from '../../services/api/http';
 import { TurnoResponse } from '../../types/turnero.types';
 import { weekRangeQueryParams } from '../../utils/dateRange';
 import CrearTurnoModal from '../../components/turnero/CrearTurnoModal';
@@ -91,11 +91,20 @@ export default function TurneroScreen() {
         }
       }
 
+      if (__DEV__) {
+        console.log('[Turnero] GET /turnos', params);
+      }
+
       const data = await turneroService.list(params);
       setTurnos(data);
     } catch (error) {
       if (error instanceof UnauthorizedSessionError) {
         setLoadError('Tu sesión expiró. Volvé a iniciar sesión.');
+      } else if (error instanceof HttpRequestError) {
+        setLoadError(error.message);
+        if (__DEV__) {
+          console.error('Error loading turnos:', error.status, error.endpoint, error.message);
+        }
       } else {
         const msg = error instanceof Error ? error.message : 'No se pudieron cargar los turnos.';
         setLoadError(msg);
