@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { sociosService } from '../../services/api/socios.service';
 import { SocioDetail } from '../../types/socios.types';
 import { SociosStackParamList } from '../../navigation/types';
+import { isValidUuid } from '../../utils/uuid';
 import { useTheme } from '../../context/ThemeContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
@@ -41,6 +42,16 @@ export default function SocioDetailScreen() {
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
 
   const loadSocio = useCallback(async () => {
+    if (socioId === 'new') {
+      navigation.replace('SocioForm');
+      return;
+    }
+    if (!isValidUuid(socioId)) {
+      setLoading(false);
+      Alert.alert('Error', 'El socio seleccionado no tiene un identificador válido.');
+      navigation.goBack();
+      return;
+    }
     try {
       const data = await sociosService.getById(socioId);
       setSocio(data);
@@ -49,7 +60,7 @@ export default function SocioDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [socioId]);
+  }, [socioId, navigation]);
 
   useEffect(() => {
     loadSocio();

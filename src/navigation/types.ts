@@ -28,12 +28,21 @@ export type MainDrawerNavigationProp = DrawerNavigationProp<MainDrawerParamList>
 export type SociosStackParamList = {
   SociosList: undefined;
   SocioDetail: { socioId: string };
+  SocioForm: undefined;
 };
 
 // Planes Stack
 export type PlanesStackParamList = {
   PlanesList: undefined;
   PlanDetail: { planId: string };
+  PlanForm: {
+    planId?: string;
+    initialNombre?: string;
+    initialDescripcion?: string;
+    initialSemanas?: number | null;
+    initialObjetivo?: string;
+    initialTipoPlanId?: string;
+  };
 };
 
 // Root Navigator

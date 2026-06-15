@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext, ReactNode } from
 import { tokenStorage, userStorage, clearClientSession } from '../services/api/storage';
 import { loginService, Usuario } from '../services/api/login.service';
 import { setUnauthorizedCallback } from '../services/api/http';
+import { isJwtExpired } from '../utils/jwt';
 
 interface AuthContextType {
   user: Usuario | null;
@@ -28,7 +29,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await userStorage.getUser();
       
       if (token && userData) {
-        setUser(userData);
+        if (isJwtExpired(token)) {
+          await clearClientSession();
+          setUser(null);
+        } else {
+          setUser(userData);
+        }
       } else {
         setUser(null);
       }

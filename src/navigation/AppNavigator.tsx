@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import {
   NavigationContainer,
@@ -10,11 +10,19 @@ import { palette } from '../constants/colors';
 import { setNavigationCallback } from '../services/api/http';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import FloatingActionButtons from '../components/common/FloatingActionButtons';
+import { getActiveRouteName } from './routeUtils';
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
   const { isDark } = useTheme();
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
+  const [activeRoute, setActiveRoute] = useState<string | undefined>();
+
+  const syncActiveRoute = useCallback(() => {
+    const state = navigationRef.current?.getRootState();
+    setActiveRoute(getActiveRouteName(state));
+  }, []);
 
   // Configurar callback de navegación para el interceptor 401
   useEffect(() => {
@@ -42,8 +50,19 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      {isAuthenticated ? <MainNavigator /> : <AuthNavigator />}
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={syncActiveRoute}
+      onStateChange={syncActiveRoute}
+    >
+      {isAuthenticated ? (
+        <>
+          <MainNavigator />
+          <FloatingActionButtons activeRoute={activeRoute} />
+        </>
+      ) : (
+        <AuthNavigator />
+      )}
     </NavigationContainer>
   );
 }

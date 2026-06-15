@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
-  Linking,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { palette } from '../../constants/colors';
 import { useDebounce } from '../../hooks/useDebounce';
 import Loader from '../../components/common/Loader';
 import EmptyState from '../../components/common/EmptyState';
+import VideoPlayerModal from '../../components/common/VideoPlayerModal';
 
 export default function TutorialesScreen() {
   const { isDark } = useTheme();
@@ -33,6 +33,7 @@ export default function TutorialesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [total, setTotal] = useState(0);
   const [skip, setSkip] = useState(0);
+  const [videoModal, setVideoModal] = useState<Tutorial | null>(null);
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -94,9 +95,8 @@ export default function TutorialesScreen() {
   }, [loadingMore, loading, tutoriales.length, total, loadTutoriales]);
 
   const handleOpenVideo = useCallback((tutorial: Tutorial) => {
-    const url = tutorial.videoUrl || tutorial.embedUrl;
-    if (url) {
-      Linking.openURL(url).catch(() => {});
+    if (tutorial.embedUrl || tutorial.videoUrl) {
+      setVideoModal(tutorial);
     }
   }, []);
 
@@ -253,6 +253,12 @@ export default function TutorialesScreen() {
           initialNumToRender={6}
         />
       )}
+      <VideoPlayerModal
+        visible={Boolean(videoModal)}
+        title={videoModal?.titulo}
+        embedUrl={videoModal?.embedUrl || videoModal?.videoUrl}
+        onClose={() => setVideoModal(null)}
+      />
     </View>
   );
 }

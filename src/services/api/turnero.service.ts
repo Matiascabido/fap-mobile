@@ -18,10 +18,26 @@ function buildListQuery(
   return params.toString();
 }
 
+function normalizeTurnosList(raw: unknown): TurnoResponse[] {
+  if (Array.isArray(raw)) return raw as TurnoResponse[];
+  if (raw && typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    if (Array.isArray(o.items)) return o.items as TurnoResponse[];
+    if (Array.isArray(o.data)) return o.data as TurnoResponse[];
+    if (Array.isArray(o.turnos)) return o.turnos as TurnoResponse[];
+  }
+  return [];
+}
+
+export interface TurnoCreateDTO {
+  titulo: string;
+  cupos_maximos: number;
+  fecha_hora_inicio: string;
+  duracion_minutos: number;
+  descripcion?: string | null;
+}
+
 export const turneroService = {
-  /**
-   * Lista turnos en un rango de fechas
-   */
   async list(params?: ListTurnosParams): Promise<TurnoResponse[]> {
     const q = buildListQuery(params?.page ?? 1, params?.limit ?? 200, {
       desde: params?.desde ?? undefined,
@@ -29,22 +45,21 @@ export const turneroService = {
       email_socio: params?.email_socio ?? undefined,
       email_profesional: params?.email_profesional ?? undefined,
     });
-    const data = await apiFetch<TurnoResponse[]>(`/turnos?${q}`, { method: 'GET' });
-    return Array.isArray(data) ? data : [];
+    const data = await apiFetch<unknown>(`/turnos?${q}`, { method: 'GET' });
+    return normalizeTurnosList(data);
   },
 
-  /**
-   * Obtiene un turno por ID (incluye inscriptos)
-   */
+  async create(dto: TurnoCreateDTO): Promise<TurnoResponse[]> {
+    const data = await apiFetch<unknown>('/turnos', { method: 'POST', data: dto });
+    return normalizeTurnosList(data);
+  },
+
   async getById(idTurno: string): Promise<TurnoResponse> {
     return apiFetch<TurnoResponse>(`/turnos/${encodeURIComponent(idTurno)}`, {
       method: 'GET',
     });
   },
 
-  /**
-   * Inscribe al usuario actual en un turno
-   */
   async inscribir(idTurno: string, ctx?: ApiFetchContext): Promise<unknown> {
     return apiFetch(
       `/turnos/${encodeURIComponent(idTurno)}/inscripcion`,
@@ -53,9 +68,6 @@ export const turneroService = {
     );
   },
 
-  /**
-   * Desinscribe al usuario actual de un turno
-   */
   async desinscribir(idTurno: string, ctx?: ApiFetchContext): Promise<void> {
     return apiFetch(
       `/turnos/${encodeURIComponent(idTurno)}/inscripcion`,

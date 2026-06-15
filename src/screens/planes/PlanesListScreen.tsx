@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { planesService } from '../../services/api/planes.service';
 import { PlanWithRelations } from '../../types/planes.types';
 import { useTheme } from '../../context/ThemeContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
 import { useDebounce } from '../../hooks/useDebounce';
 import Badge from '../../components/common/Badge';
@@ -24,6 +25,8 @@ type EstadoFilter = 'todos' | 'activos' | 'finalizados';
 export default function PlanesListScreen() {
   const navigation = useNavigation<any>();
   const { isDark } = useTheme();
+  const { isProfesionalUser, isAdminUser } = usePermissions();
+  const canManage = isProfesionalUser || isAdminUser;
 
   const [planes, setPlanes] = useState<PlanWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,6 +235,17 @@ export default function PlanesListScreen() {
         windowSize={10}
         initialNumToRender={10}
       />
+
+      {canManage && (
+        <TouchableOpacity
+          style={styles.fab}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('PlanForm', {})}
+          accessibilityLabel="Crear plan"
+        >
+          <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -321,5 +335,21 @@ const styles = StyleSheet.create({
   planRowText: {
     fontSize: 13,
     flex: 1,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: palette.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

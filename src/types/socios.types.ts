@@ -41,7 +41,8 @@ export interface User {
   obra_social: string | null;
   tipo_estatus: string;
   tipo_status?: string;
-  id_usuario: string;
+  id_usuario?: string;
+  id?: string;
   estado: boolean;
   created_date?: string;
   update_date?: string | null;

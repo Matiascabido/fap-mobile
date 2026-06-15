@@ -22,7 +22,10 @@ import {
 import { es } from 'date-fns/locale';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { turneroService } from '../../services/api/turnero.service';
+import { UnauthorizedSessionError } from '../../services/api/http';
 import { TurnoResponse } from '../../types/turnero.types';
+import { weekRangeQueryParams } from '../../utils/dateRange';
+import CrearTurnoModal from '../../components/turnero/CrearTurnoModal';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -36,12 +39,16 @@ export default function TurneroScreen() {
   const { isDark } = useTheme();
   const { user } = useAuth();
   const { canEnrollTurnos, canManageTurnos, isProfesionalUser } = usePermissions();
+  const canEnroll = canEnrollTurnos();
+  const canManage = canManageTurnos();
 
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [turnos, setTurnos] = useState<TurnoResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [showCrearTurno, setShowCrearTurno] = useState(false);
   const [inscribiendo, setInscribiendo] = useState<string | null>(null);
   const daysScrollRef = useRef<ScrollView>(null);
 
@@ -68,32 +75,38 @@ export default function TurneroScreen() {
   );
 
   const loadTurnos = useCallback(async () => {
+    setLoadError('');
     try {
+      const range = weekRangeQueryParams(weekStart, weekEnd);
       const params: Record<string, string> = {
-        desde: weekStart.toISOString(),
-        hasta: weekEnd.toISOString(),
+        desde: range.desde,
+        hasta: range.hasta,
       };
 
-      // Filtrado por rol según spec:
-      // - Socio/entrenado: ver solo sus inscripciones (email_socio)
-      // - Profesional: ver solo sus turnos creados (email_profesional)
-      // - Admin/GOD: ver todos
-      if (canEnrollTurnos() && userEmail) {
-        params.email_socio = userEmail;
-      } else if (isProfesionalUser && !canManageTurnos() && userEmail) {
-        // Profesional sin admin: ve sus turnos propios
-        params.email_profesional = userEmail;
+      if (!canManage) {
+        if (canEnroll && userEmail) {
+          params.email_socio = userEmail;
+        } else if (isProfesionalUser && userEmail) {
+          params.email_profesional = userEmail;
+        }
       }
 
       const data = await turneroService.list(params);
       setTurnos(data);
     } catch (error) {
-      console.error('Error loading turnos:', error);
+      if (error instanceof UnauthorizedSessionError) {
+        setLoadError('Tu sesión expiró. Volvé a iniciar sesión.');
+      } else {
+        const msg = error instanceof Error ? error.message : 'No se pudieron cargar los turnos.';
+        setLoadError(msg);
+        console.error('Error loading turnos:', error);
+      }
+      setTurnos([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [weekStart, weekEnd, canEnrollTurnos, canManageTurnos, isProfesionalUser, userEmail]);
+  }, [weekStart, weekEnd, canEnroll, canManage, isProfesionalUser, userEmail]);
 
   useEffect(() => {
     setLoading(true);
@@ -167,7 +180,7 @@ export default function TurneroScreen() {
   };
 
   // Indicadores contextuales
-  const showRoleBadge = canManageTurnos();
+  const showRoleBadge = canManage;
   const roleLabel = isProfesionalUser && !showRoleBadge ? 'Profesional' : showRoleBadge ? 'Staff' : null;
 
   return (
@@ -201,6 +214,14 @@ export default function TurneroScreen() {
             <Text style={styles.todayButtonText}>Hoy</Text>
           </TouchableOpacity>
           <View style={styles.weekNav}>
+            {canManage && (
+              <TouchableOpacity
+                style={styles.addClassButton}
+                onPress={() => setShowCrearTurno(true)}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={palette.primary} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={() => setCurrentWeek((w) => subWeeks(w, 1))}
               style={styles.weekNavButton}
@@ -276,6 +297,13 @@ export default function TurneroScreen() {
             {turnosDelDia.length} {turnosDelDia.length === 1 ? 'turno' : 'turnos'}
           </Text>
         </View>
+
+        {loadError ? (
+          <View style={styles.errorBox}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={20} color={palette.error} />
+            <Text style={styles.errorText}>{loadError}</Text>
+          </View>
+        ) : null}
 
         {loading && !refreshing ? (
           <View style={styles.loaderContainer}>
@@ -374,7 +402,7 @@ export default function TurneroScreen() {
                     </View>
 
                     {/* Botón inscribirse (solo socios/entrenados) */}
-                    {!turno.cancelado && canEnrollTurnos() && (
+                    {!turno.cancelado && canEnroll && (
                       <TouchableOpacity
                         style={[
                           styles.inscribirButton,
@@ -412,7 +440,7 @@ export default function TurneroScreen() {
                     )}
 
                     {/* Acción staff: ver inscriptos */}
-                    {canManageTurnos() && inscriptos > 0 && (
+                    {canManage && inscriptos > 0 && (
                       <View style={[styles.staffInfo, { borderTopColor: borderColor }]}>
                         <MaterialCommunityIcons name="account-group" size={14} color={textSecondary} />
                         <Text style={[styles.staffInfoText, { color: textSecondary }]}>
@@ -427,6 +455,13 @@ export default function TurneroScreen() {
           </ScrollView>
         )}
       </View>
+
+      <CrearTurnoModal
+        visible={showCrearTurno}
+        selectedDay={selectedDay}
+        onClose={() => setShowCrearTurno(false)}
+        onCreated={loadTurnos}
+      />
     </View>
   );
 }
@@ -462,7 +497,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(220,38,38,0.1)',
   },
   todayButtonText: { color: palette.primary, fontWeight: '700', fontSize: 13 },
-  weekNav: { flexDirection: 'row', gap: 4 },
+  weekNav: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  addClassButton: {
+    width: 36, height: 36, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(220,38,38,0.1)', marginRight: 4,
+  },
   weekNavButton: {
     width: 36, height: 36, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
@@ -492,6 +532,17 @@ const styles = StyleSheet.create({
   },
   selectedDayTitle: { fontSize: 15, fontWeight: '800' },
   turnosCount: { fontSize: 13 },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(220,38,38,0.08)',
+  },
+  errorText: { flex: 1, color: palette.error, fontSize: 13 },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 180 },
   turnosContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   turnoCard: { borderRadius: 18, borderWidth: 1, padding: 14 },

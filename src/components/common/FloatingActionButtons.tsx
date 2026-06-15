@@ -416,8 +416,24 @@ function DejanosMensajeModal({ visible, onClose }: DejanosMensajeModalProps) {
 
 // ─── Componente Principal FABs ───────────────────────────────────────────────
 
-export default function FloatingActionButtons() {
+const HIDE_FAB_ROUTES = new Set([
+  'Socios',
+  'Suscripciones',
+  'SociosList',
+  'SocioDetail',
+  'SocioForm',
+  'PlanesList',
+  'PlanDetail',
+  'PlanForm',
+]);
+
+interface FloatingActionButtonsProps {
+  activeRoute?: string;
+}
+
+export default function FloatingActionButtons({ activeRoute }: FloatingActionButtonsProps) {
   const insets = useSafeAreaInsets();
+  const hideFab = activeRoute ? HIDE_FAB_ROUTES.has(activeRoute) : false;
   const [expanded, setExpanded] = useState(false);
   const [showSugerir, setShowSugerir] = useState(false);
   const [showMensaje, setShowMensaje] = useState(false);
@@ -436,6 +452,7 @@ export default function FloatingActionButtons() {
 
   return (
     <>
+      {!hideFab && (
       <View style={[styles.fabContainer, { bottom: insets.bottom + 24 }]}>
         {expanded && (
           <View style={styles.fabActions}>
@@ -463,6 +480,7 @@ export default function FloatingActionButtons() {
           />
         </TouchableOpacity>
       </View>
+      )}
 
       <SugerirEjercicioModal
         visible={showSugerir}

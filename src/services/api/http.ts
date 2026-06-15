@@ -31,10 +31,22 @@ function handleUnauthorized(endpoint: string): void {
   }
 }
 
-function isCredentialLoginEndpoint(endpoint: string): boolean {
+export function isCredentialLoginEndpoint(endpoint: string): boolean {
   if (endpoint === '/login' || endpoint.startsWith('/login?')) return true;
   if (endpoint === '/login/token' || endpoint.startsWith('/login/token?')) return true;
   return false;
+}
+
+function requestPath(config: AxiosRequestConfig): string {
+  const raw = config.url ?? '';
+  if (raw.startsWith('http')) {
+    try {
+      return new URL(raw).pathname;
+    } catch {
+      return raw;
+    }
+  }
+  return raw.split('?')[0] ?? raw;
 }
 
 /** Convierte `detail` de FastAPI u otros formatos en texto legible */
@@ -45,7 +57,18 @@ function stringifyApiErrorDetail(detail: unknown): string {
     const parts = detail.map((item) => {
       if (typeof item === 'string') return item;
       if (item && typeof item === 'object' && 'msg' in item) {
-        return String((item as { msg?: unknown }).msg ?? '');
+        const msg = String((item as { msg?: unknown }).msg ?? '');
+        const loc = (item as { loc?: unknown[] }).loc;
+        const field = Array.isArray(loc) ? String(loc[loc.length - 1] ?? '') : '';
+
+        if (field === 'user_mail' && msg.toLowerCase().includes('required')) {
+          return 'El correo es obligatorio';
+        }
+        if (field === 'user_pass' && msg.toLowerCase().includes('required')) {
+          return 'La contraseña es obligatoria';
+        }
+
+        return msg;
       }
       try {
         return JSON.stringify(item);
@@ -129,9 +152,15 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor: agregar token
+// Request interceptor: agregar token (excepto en login)
 api.interceptors.request.use(
   async (config) => {
+    const path = requestPath(config);
+    if (isCredentialLoginEndpoint(path)) {
+      delete config.headers.Authorization;
+      return config;
+    }
+
     const token = await tokenStorage.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

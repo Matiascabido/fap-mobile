@@ -30,6 +30,7 @@ import { SuscripcionData, SuscripcionEstado } from '../../types/suscripciones.ty
 import { Socio } from '../../types/socios.types';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { getUserId } from '../../utils/userId';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -81,7 +82,7 @@ function CrearSuscripcionModal({
   const [socioSel, setSocioSel] = useState('');
   const [detalleSel, setDetalleSel] = useState('');
   const [fechaVenc, setFechaVenc] = useState('');
-  const [profId, setProfId] = useState(profesionalId ?? user?.id ?? '');
+  const [profId, setProfId] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -95,6 +96,7 @@ function CrearSuscripcionModal({
 
   useEffect(() => {
     if (visible) {
+      setProfId(profesionalId ?? getUserId(user));
       setLoadingData(true);
       Promise.all([
         sociosService.getSocios().catch(() => []),
@@ -106,7 +108,7 @@ function CrearSuscripcionModal({
         })
         .finally(() => setLoadingData(false));
     }
-  }, [visible]);
+  }, [visible, profesionalId, user]);
 
   const reset = () => {
     setSocioSel('');
@@ -283,6 +285,8 @@ function CrearSuscripcionModal({
                 Mínimo: {fechaMinima()}
               </Text>
               {errors.fecha ? <Text style={styles.fieldError}>{errors.fecha}</Text> : null}
+
+              {errors.prof ? <Text style={styles.fieldError}>{errors.prof}</Text> : null}
 
               {/* Resumen */}
               {(socioNombre || detalleNombre) && (
@@ -569,7 +573,9 @@ export default function SuscripcionesScreen() {
         visible={showCrear}
         onClose={() => setShowCrear(false)}
         onCreated={loadSuscripciones}
-        profesionalId={isProfesionalUser && !isAdminUser ? user?.id : undefined}
+        profesionalId={
+          isProfesionalUser && !isAdminUser ? getUserId(user) : getUserId(user) || undefined
+        }
       />
     </View>
   );

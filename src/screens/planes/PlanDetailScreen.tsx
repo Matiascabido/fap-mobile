@@ -16,6 +16,8 @@ import { planesService } from '../../services/api/planes.service';
 import { PlanWithRelations, Bloque, PlanBloqueRelacion, PlanEjercicioItem } from '../../types/planes.types';
 import { PlanesStackParamList } from '../../navigation/types';
 import { useTheme } from '../../context/ThemeContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import { AddBloqueModal, AddEjercicioModal } from '../../components/planes/PlanManageModals';
 import { palette } from '../../constants/colors';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
@@ -35,12 +37,19 @@ export default function PlanDetailScreen() {
   const route = useRoute<PlanDetailRouteProp>();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
+  const { isProfesionalUser, isAdminUser } = usePermissions();
 
   const { planId } = route.params;
 
   const [planData, setPlanData] = useState<PlanWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedBloques, setExpandedBloques] = useState<Set<string>>(new Set());
+  const [showAddBloque, setShowAddBloque] = useState(false);
+  const [ejercicioTarget, setEjercicioTarget] = useState<{ planBloqueId: string; nombre: string } | null>(
+    null
+  );
+
+  const canManage = isProfesionalUser || isAdminUser;
 
   const bgColor = isDark ? palette.darkBg : palette.lightBg;
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
@@ -50,7 +59,7 @@ export default function PlanDetailScreen() {
 
   const loadPlan = useCallback(async () => {
     try {
-      // El backend devuelve la lista completa; buscamos el plan por ID
+      setLoading(true);
       const all = await planesService.getAll();
       const found = all.find((p) => p.plan.id === planId);
       setPlanData(found || null);
@@ -115,7 +124,25 @@ export default function PlanDetailScreen() {
         <Text style={[styles.topBarTitle, { color: textPrimary }]} numberOfLines={1}>
           {plan.nombre_plan}
         </Text>
-        <View style={{ width: 32 }} />
+        {canManage ? (
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate('PlanForm', {
+                planId: plan.id,
+                initialNombre: plan.nombre_plan,
+                initialDescripcion: plan.descripcion ?? '',
+                initialSemanas: plan.semanas,
+                initialObjetivo: plan.objetivo_semanal ?? '',
+                initialTipoPlanId: plan.id_tipo_plan ?? plan.tipo_plan?.id ?? '',
+              })
+            }
+            style={styles.backButton}
+          >
+            <MaterialCommunityIcons name="pencil" size={22} color={palette.primary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 32 }} />
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -155,9 +182,17 @@ export default function PlanDetailScreen() {
         </Card>
 
         {/* Bloques de entrenamiento */}
-        <Text style={[styles.sectionTitle, { color: textPrimary }]}>
-          Bloques de entrenamiento
-        </Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: textPrimary }]}>
+            Bloques de entrenamiento
+          </Text>
+          {canManage ? (
+            <TouchableOpacity style={styles.addLink} onPress={() => setShowAddBloque(true)}>
+              <MaterialCommunityIcons name="plus-circle" size={18} color={palette.primary} />
+              <Text style={styles.addLinkText}>Agregar bloque</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
         {bloques.length === 0 ? (
           <Card>
@@ -168,6 +203,7 @@ export default function PlanDetailScreen() {
         ) : (
           bloques.map((bloque, index) => {
             const bloqueId = bloque.id || `bloque-${index}`;
+            const planBloqueId = bloque.id_plan_bloque ?? bloque.id_fila_plan_bloque ?? '';
             const isExpanded = expandedBloques.has(bloqueId);
             const ejercicios = bloque.ejercicios || [];
             const diaNombre =
@@ -222,6 +258,17 @@ export default function PlanDetailScreen() {
                         />
                       ))
                     )}
+                    {canManage && planBloqueId ? (
+                      <TouchableOpacity
+                        style={styles.addEjercicioBtn}
+                        onPress={() =>
+                          setEjercicioTarget({ planBloqueId, nombre: bloque.nombre })
+                        }
+                      >
+                        <MaterialCommunityIcons name="plus" size={16} color={palette.primary} />
+                        <Text style={styles.addEjercicioText}>Agregar ejercicio</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 )}
               </Card>
@@ -229,6 +276,23 @@ export default function PlanDetailScreen() {
           })
         )}
       </ScrollView>
+
+      <AddBloqueModal
+        visible={showAddBloque}
+        planId={planId}
+        onClose={() => setShowAddBloque(false)}
+        onSaved={loadPlan}
+      />
+      {ejercicioTarget ? (
+        <AddEjercicioModal
+          visible={Boolean(ejercicioTarget)}
+          planId={planId}
+          planBloqueId={ejercicioTarget.planBloqueId}
+          bloqueNombre={ejercicioTarget.nombre}
+          onClose={() => setEjercicioTarget(null)}
+          onSaved={loadPlan}
+        />
+      ) : null}
     </View>
   );
 }
@@ -317,11 +381,14 @@ function normalizeBloques(planData: PlanWithRelations): Bloque[] {
 }
 
 function relacionToBloque(rel: PlanBloqueRelacion, diaSemana?: number | null): Bloque {
+  const planBloqueId = rel.id_plan_bloque ?? rel.id ?? null;
   return {
     ...rel.bloque,
     ejercicios: rel.ejercicios || rel.bloque.ejercicios,
     dia_semana: rel.dia_semana ?? diaSemana ?? rel.bloque.dia_semana,
     orden_en_plan: rel.orden ?? rel.bloque.orden_en_plan,
+    id_plan_bloque: planBloqueId ?? undefined,
+    id_fila_plan_bloque: planBloqueId ?? undefined,
   };
 }
 
@@ -401,8 +468,23 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
+  addLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  addLinkText: { color: palette.primary, fontSize: 13, fontWeight: '600' },
+  addEjercicioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  addEjercicioText: { color: palette.primary, fontSize: 14, fontWeight: '600' },
   bloqueCard: {
     marginBottom: 12,
     overflow: 'hidden',

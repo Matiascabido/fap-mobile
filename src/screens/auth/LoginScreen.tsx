@@ -53,7 +53,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      await login(usuario, password);
+      await login(usuario.trim(), password);
 
       if (remember) {
         await storage.set(STORAGE_KEYS.REMEMBER_USER, usuario);
@@ -106,8 +106,8 @@ export default function LoginScreen() {
 
             <View style={styles.form}>
               <Input
-                label="Usuario"
-                placeholder="Ingresá tu usuario"
+                label="Correo electrónico"
+                placeholder="Ingresá tu correo"
                 value={usuario}
                 onChangeText={(text) => {
                   setUsuario(text);

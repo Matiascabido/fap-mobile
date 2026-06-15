@@ -21,8 +21,9 @@ function buildUsuariosListParams(extra?: Record<string, string>): string {
 /**
  * Mapea un User del backend al Socio normalizado para la UI
  */
-export function mapUserToSocio(u: User): Socio {
-  const id = String(u.id_usuario ?? '');
+export function mapUserToSocio(u: User): Socio | null {
+  const id = String(u.id_usuario ?? u.id ?? '').trim();
+  if (!id) return null;
   const tipoEstatus = (u.tipo_estatus || u.tipo_status || '').trim();
   const rolNombre = u.rol?.nombre_rol ?? 'usuario';
 
@@ -50,7 +51,20 @@ export const sociosService = {
       method: 'GET',
     });
     const users = Array.isArray(data) ? data : [];
-    return users.map(mapUserToSocio);
+    return users.map(mapUserToSocio).filter((s): s is Socio => s != null);
+  },
+
+  /**
+   * Obtiene id_rol por defecto para alta de socio
+   */
+  async getDefaultSocioRolId(): Promise<string> {
+    const params = buildUsuariosListParams({ socios: 'true' });
+    const data = await apiFetch<User[]>(`/usuarios?${params}`, { method: 'GET' });
+    const users = Array.isArray(data) ? data : [];
+    for (const u of users) {
+      if (u.rol?.id_rol) return u.rol.id_rol;
+    }
+    throw new Error('No se pudo determinar el rol para crear socios');
   },
 
   /**
@@ -62,14 +76,18 @@ export const sociosService = {
       method: 'GET',
     });
     const users = Array.isArray(data) ? data : [];
-    return users.map(mapUserToSocio);
+    return users.map(mapUserToSocio).filter((s): s is Socio => s != null);
   },
 
   /**
    * Obtiene el detalle de un socio por ID
    */
   async getById(id: string): Promise<SocioDetail> {
-    return await apiFetch<SocioDetail>(`/usuarios/${id}`, {
+    const trimmed = id.trim();
+    if (!trimmed || trimmed === 'new') {
+      throw new Error('ID de socio inválido');
+    }
+    return await apiFetch<SocioDetail>(`/usuarios/${encodeURIComponent(trimmed)}`, {
       method: 'GET',
     });
   },

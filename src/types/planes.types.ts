@@ -27,6 +27,7 @@ export interface Bloque {
   id: string;
   ejercicios?: PlanEjercicioItem[] | null;
   id_plan_bloque?: string | null;
+  id_fila_plan_bloque?: string | null;
   orden_en_plan?: number | null;
   dia_semana?: number | null;
 }

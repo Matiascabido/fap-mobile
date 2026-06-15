@@ -11,13 +11,14 @@ import { ROUTES } from '../constants/navigation';
 import { palette } from '../constants/colors';
 import DrawerContent from '../components/navigation/DrawerContent';
 import Header from '../components/navigation/Header';
-import FloatingActionButtons from '../components/common/FloatingActionButtons';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import SociosListScreen from '../screens/socios/SociosListScreen';
 import SocioDetailScreen from '../screens/socios/SocioDetailScreen';
+import SocioFormScreen from '../screens/socios/SocioFormScreen';
 import PlanesListScreen from '../screens/planes/PlanesListScreen';
 import PlanDetailScreen from '../screens/planes/PlanDetailScreen';
+import PlanFormScreen from '../screens/planes/PlanFormScreen';
 import SuscripcionesScreen from '../screens/suscripciones/SuscripcionesScreen';
 import TurneroScreen from '../screens/turnero/TurneroScreen';
 import EvaluacionesScreen from '../screens/evaluaciones/EvaluacionesScreen';
@@ -35,6 +36,7 @@ function SociosNavigator() {
     <SociosStack.Navigator screenOptions={{ headerShown: false }}>
       <SociosStack.Screen name="SociosList" component={SociosListScreen} />
       <SociosStack.Screen name="SocioDetail" component={SocioDetailScreen} />
+      <SociosStack.Screen name="SocioForm" component={SocioFormScreen} />
     </SociosStack.Navigator>
   );
 }
@@ -45,6 +47,7 @@ function PlanesNavigator() {
     <PlanesStack.Navigator screenOptions={{ headerShown: false }}>
       <PlanesStack.Screen name="PlanesList" component={PlanesListScreen} />
       <PlanesStack.Screen name="PlanDetail" component={PlanDetailScreen} />
+      <PlanesStack.Screen name="PlanForm" component={PlanFormScreen} />
     </PlanesStack.Navigator>
   );
 }
@@ -85,7 +88,6 @@ export default function MainNavigator() {
         />
         <Drawer.Screen name={ROUTES.PERFIL as keyof MainDrawerParamList} component={PerfilScreen} />
       </Drawer.Navigator>
-      <FloatingActionButtons />
     </View>
   );
 }

@@ -248,7 +248,7 @@ export default function SociosListScreen() {
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.8}
-          onPress={() => navigation.navigate('SocioDetail', { socioId: 'new' })}
+          onPress={() => navigation.navigate('SocioForm')}
           accessibilityLabel="Agregar socio"
         >
           <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
