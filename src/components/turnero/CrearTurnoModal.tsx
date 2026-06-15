@@ -15,6 +15,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { turneroService } from '../../services/api/turnero.service';
 import { combineDayAndTime, toGymLocalDateTime } from '../../utils/dateRange';
+import TimePickerField from '../../components/common/TimePickerField';
 import { useTheme } from '../../context/ThemeContext';
 import { palette } from '../../constants/colors';
 
@@ -124,14 +125,11 @@ export default function CrearTurnoModal({
               multiline
             />
 
-            <Text style={[styles.label, { color: textSecondary }]}>Hora de inicio (HH:mm) *</Text>
-            <TextInput
-              style={[styles.input, { borderColor, color: textPrimary }]}
+            <TimePickerField
+              label="Hora de inicio *"
               value={hora}
-              onChangeText={setHora}
-              placeholder="09:00"
-              placeholderTextColor={textSecondary}
-              keyboardType="numbers-and-punctuation"
+              onChange={setHora}
+              placeholder="Elegí la hora de inicio"
             />
 
             <Text style={[styles.label, { color: textSecondary }]}>Duración (minutos) *</Text>

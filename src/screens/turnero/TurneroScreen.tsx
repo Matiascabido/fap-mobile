@@ -91,10 +91,6 @@ export default function TurneroScreen() {
         }
       }
 
-      if (__DEV__) {
-        console.log('[Turnero] GET /turnos', params);
-      }
-
       const data = await turneroService.list(params);
       setTurnos(data);
     } catch (error) {
@@ -102,13 +98,9 @@ export default function TurneroScreen() {
         setLoadError('Tu sesión expiró. Volvé a iniciar sesión.');
       } else if (error instanceof HttpRequestError) {
         setLoadError(error.message);
-        if (__DEV__) {
-          console.error('Error loading turnos:', error.status, error.endpoint, error.message);
-        }
       } else {
         const msg = error instanceof Error ? error.message : 'No se pudieron cargar los turnos.';
         setLoadError(msg);
-        console.error('Error loading turnos:', error);
       }
       setTurnos([]);
     } finally {

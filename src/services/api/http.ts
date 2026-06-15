@@ -173,6 +173,47 @@ export type ApiFetchContext = {
   suppressGlobalAlert?: boolean;
 };
 
+function parseEndpointPath(endpoint: string): string {
+  return endpoint.split('?')[0] ?? endpoint;
+}
+
+function parseQueryParams(endpoint: string): Record<string, string> | undefined {
+  const idx = endpoint.indexOf('?');
+  if (idx < 0) return undefined;
+  const qs = endpoint.slice(idx + 1);
+  if (!qs) return undefined;
+  return Object.fromEntries(new URLSearchParams(qs));
+}
+
+/** Logs de diagnóstico en desarrollo (mismo patrón que Turnero). */
+function logApiRequest(endpoint: string, options?: AxiosRequestConfig): void {
+  if (!__DEV__) return;
+  const method = (options?.method ?? 'GET').toUpperCase();
+  const path = parseEndpointPath(endpoint);
+  const query = parseQueryParams(endpoint);
+  const body = options?.data;
+
+  if (body !== undefined && body !== null) {
+    console.log(`[API] ${method} ${path}`, body);
+  } else if (query && Object.keys(query).length > 0) {
+    console.log(`[API] ${method} ${path}`, query);
+  } else {
+    console.log(`[API] ${method} ${path}`);
+  }
+}
+
+function logApiError(endpoint: string, error: unknown): void {
+  if (error instanceof UnauthorizedSessionError) return;
+  const path = parseEndpointPath(endpoint);
+  if (error instanceof HttpRequestError) {
+    if (__DEV__) {
+      console.error(`Error API ${path}:`, error.status, error.endpoint, error.message);
+    }
+    return;
+  }
+  console.error(`Error API ${path}:`, error);
+}
+
 // Crear instancia de Axios
 const api: AxiosInstance = axios.create({
   baseURL: config.apiUrl,
@@ -233,6 +274,7 @@ export async function apiFetch<T>(
   options?: AxiosRequestConfig,
   ctx?: ApiFetchContext
 ): Promise<T> {
+  logApiRequest(endpoint, options);
   try {
     const response: AxiosResponse<T> = await api.request({
       url: endpoint,
@@ -254,7 +296,9 @@ export async function apiFetch<T>(
         showErrorAlert(message);
       }
 
-      throw new HttpRequestError(message, status, endpoint);
+      const httpError = new HttpRequestError(message, status, endpoint);
+      logApiError(endpoint, httpError);
+      throw httpError;
     }
     
     // Error de red u otro
@@ -262,7 +306,9 @@ export async function apiFetch<T>(
     if (!ctx?.suppressGlobalAlert) {
       showErrorAlert(message);
     }
-    throw new Error(message);
+    const networkError = new Error(message);
+    logApiError(endpoint, networkError);
+    throw networkError;
   }
 }
 
@@ -274,6 +320,7 @@ export async function apiFetchWithResponse<T>(
   options?: AxiosRequestConfig,
   ctx?: ApiFetchContext
 ): Promise<{ data: T; response: AxiosResponse<T> }> {
+  logApiRequest(endpoint, options);
   try {
     const response: AxiosResponse<T> = await api.request({
       url: endpoint,
@@ -295,14 +342,18 @@ export async function apiFetchWithResponse<T>(
         showErrorAlert(message);
       }
 
-      throw new HttpRequestError(message, status, endpoint);
+      const httpError = new HttpRequestError(message, status, endpoint);
+      logApiError(endpoint, httpError);
+      throw httpError;
     }
     
     const message = formatNetworkErrorMessage(error instanceof Error ? error.message : String(error));
     if (!ctx?.suppressGlobalAlert) {
       showErrorAlert(message);
     }
-    throw new Error(message);
+    const networkError = new Error(message);
+    logApiError(endpoint, networkError);
+    throw networkError;
   }
 }
 

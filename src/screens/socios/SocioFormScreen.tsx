@@ -13,11 +13,19 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Input from '../../components/common/Input';
+import DatePickerField from '../../components/common/DatePickerField';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
 import { sociosService } from '../../services/api/socios.service';
 import { useTheme } from '../../context/ThemeContext';
 import { palette } from '../../constants/colors';
+
+function rangoFechaNacimiento(): { min: Date; max: Date } {
+  const max = new Date();
+  const min = new Date();
+  min.setFullYear(min.getFullYear() - 100);
+  return { min, max };
+}
 
 export default function SocioFormScreen() {
   const navigation = useNavigation<any>();
@@ -35,6 +43,7 @@ export default function SocioFormScreen() {
   const [mail, setMail] = useState('');
   const [celular, setCelular] = useState('');
   const [password, setPassword] = useState('');
+  const [fechaNacimiento, setFechaNacimiento] = useState('');
 
   const bgColor = isDark ? palette.darkBg : palette.lightBg;
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
@@ -68,6 +77,7 @@ export default function SocioFormScreen() {
         mail: mail.trim(),
         password: password.trim() || dni.trim(),
         celular: celular.trim() || undefined,
+        ...(fechaNacimiento ? { fecha_nacimiento: fechaNacimiento } : {}),
         historia_clinica: {
           antecedentes: false,
           cirugias: false,
@@ -83,6 +93,8 @@ export default function SocioFormScreen() {
       setLoading(false);
     }
   };
+
+  const { min: fechaNacMin, max: fechaNacMax } = rangoFechaNacimiento();
 
   if (loadingMeta) {
     return <Loader fullscreen message="Preparando formulario..." />;
@@ -120,6 +132,16 @@ export default function SocioFormScreen() {
           autoCapitalize="none"
         />
         <Input label="Celular" value={celular} onChangeText={setCelular} icon="phone" keyboardType="phone-pad" />
+        <DatePickerField
+          label="Fecha de nacimiento"
+          value={fechaNacimiento}
+          onChange={setFechaNacimiento}
+          variant="form"
+          clearable
+          maximumDate={fechaNacMax}
+          minimumDate={fechaNacMin}
+          placeholder="Opcional — elegí la fecha"
+        />
         <Input
           label="Contraseña"
           value={password}

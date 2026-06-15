@@ -13,6 +13,9 @@ const MENSAJE_CONTACTO_MOCK = true;
 export const mensajeContactoService = {
   async enviar(dto: MensajeContactoDTO): Promise<void> {
     if (MENSAJE_CONTACTO_MOCK) {
+      if (__DEV__) {
+        console.log('[API] POST /mensajes-contacto (mock)', dto);
+      }
       await new Promise((r) => setTimeout(r, 600));
       return;
     }

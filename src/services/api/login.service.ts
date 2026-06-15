@@ -76,6 +76,10 @@ export const loginService = {
       user_pass: userPass,
     } satisfies LoginRequestDTO);
 
+    if (__DEV__) {
+      console.log('[API] POST /login', { user_mail: userMail });
+    }
+
     let response: Response;
     try {
       response = await fetch(`${config.apiUrl}/login`, {
@@ -86,7 +90,8 @@ export const loginService = {
         },
         body,
       });
-    } catch {
+    } catch (error) {
+      console.error('Error API /login:', error);
       throw new Error(
         'No se pudo conectar con el servidor. Verificá tu conexión e intentá de nuevo.'
       );
@@ -100,7 +105,11 @@ export const loginService = {
     }
 
     if (!response.ok) {
-      throw new Error(loginErrorMessage(data, response.status));
+      const message = loginErrorMessage(data, response.status);
+      if (__DEV__) {
+        console.error('Error API /login:', response.status, '/login', message);
+      }
+      throw new Error(message);
     }
 
     const loginData = data as LoginResponse;
@@ -124,7 +133,9 @@ export const loginService = {
         { suppressGlobalAlert: true }
       );
     } catch (error) {
-      console.error('Error en logout:', error);
+      if (__DEV__) {
+        console.error('Error API /login/logout:', error);
+      }
     } finally {
       await tokenStorage.removeToken();
       await userStorage.removeUser();

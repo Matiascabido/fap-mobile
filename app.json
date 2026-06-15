@@ -13,7 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#DC2626"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fap.mobile",
@@ -30,13 +32,19 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"],
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-splash-screen"],
+    "plugins": [
+      "expo-splash-screen",
+      "@react-native-community/datetimepicker"
+    ],
     "extra": {
       "eas": {
         "projectId": ""

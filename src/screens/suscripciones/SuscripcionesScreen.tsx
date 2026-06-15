@@ -34,7 +34,8 @@ import { getUserId } from '../../utils/userId';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
 import { useDebounce } from '../../hooks/useDebounce';
-import { formatDate, formatCurrency } from '../../utils/formatters';
+import { formatDate, formatCurrency, toIsoDateString } from '../../utils/formatters';
+import DatePickerField from '../../components/common/DatePickerField';
 import { matchSearch } from '../../utils/searchNormalize';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
@@ -54,10 +55,15 @@ const ESTADO_CONFIG: Record<
 };
 
 // Fecha mínima para vencimiento = mañana
-function fechaMinima(): string {
+function fechaMinimaDate(): Date {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function fechaMinima(): string {
+  return toIsoDateString(fechaMinimaDate());
 }
 
 // ─── Modal Crear Suscripción ─────────────────────────────────────────────────
@@ -268,23 +274,18 @@ function CrearSuscripcionModal({
               ))}
 
               {/* Fecha vencimiento */}
-              <Text style={[styles.fieldLabel, { color: textSecondary }]}>Fecha de vencimiento *</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: inputBg, borderColor: errors.fecha ? palette.error : borderColor, color: textPrimary },
-                ]}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={textSecondary}
+              <DatePickerField
+                label="Fecha de vencimiento *"
                 value={fechaVenc}
-                onChangeText={(t) => { setFechaVenc(t); setErrors((e) => ({ ...e, fecha: '' })); }}
-                keyboardType="numeric"
-                maxLength={10}
+                onChange={(v) => {
+                  setFechaVenc(v);
+                  setErrors((e) => ({ ...e, fecha: '' }));
+                }}
+                error={errors.fecha}
+                minimumDate={fechaMinimaDate()}
+                hint={`Mínimo: ${formatDate(fechaMinima())}`}
+                placeholder="Elegí la fecha de vencimiento"
               />
-              <Text style={[styles.fechaHint, { color: textSecondary }]}>
-                Mínimo: {fechaMinima()}
-              </Text>
-              {errors.fecha ? <Text style={styles.fieldError}>{errors.fecha}</Text> : null}
 
               {errors.prof ? <Text style={styles.fieldError}>{errors.prof}</Text> : null}
 
@@ -299,7 +300,9 @@ function CrearSuscripcionModal({
                     <Text style={[styles.resumenLine, { color: textPrimary }]}>Plan: {detalleNombre}</Text>
                   ) : null}
                   {fechaVenc ? (
-                    <Text style={[styles.resumenLine, { color: textPrimary }]}>Vence: {fechaVenc}</Text>
+                    <Text style={[styles.resumenLine, { color: textPrimary }]}>
+                      Vence: {formatDate(fechaVenc)}
+                    </Text>
                   ) : null}
                 </View>
               )}

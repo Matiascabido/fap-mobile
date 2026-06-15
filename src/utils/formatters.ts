@@ -100,7 +100,36 @@ export function getGreeting(): string {
  */
 export function capitalize(str: string): string {
   if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/** YYYY-MM-DD para enviar al backend */
+export function toIsoDateString(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
+/** Parsea YYYY-MM-DD de forma segura */
+export function parseIsoDateString(value: string | null | undefined): Date | null {
+  if (!value?.trim()) return null;
+  const d = parseISO(value.trim());
+  return isValid(d) ? d : null;
+}
+
+/** Hora en formato HH:mm */
+export function formatTimeHHmm(date: Date): string {
+  return format(date, 'HH:mm');
+}
+
+/** Parsea HH:mm a Date (día actual) */
+export function parseTimeHHmm(value: string): Date | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d;
 }
 
 /**
