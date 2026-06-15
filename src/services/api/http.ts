@@ -91,7 +91,13 @@ function stringifyApiErrorDetail(detail: unknown): string {
 }
 
 function messageFromApiBody(data: unknown, status: number, statusText: string): string {
-  if (typeof data === 'string' && data.trim()) return data.trim();
+  if (typeof data === 'string' && data.trim()) {
+    const raw = data.trim();
+    if (status >= 500 && looksLikeServerTraceback(raw)) {
+      return 'Error interno del servidor. Intentá de nuevo en unos segundos.';
+    }
+    return raw;
+  }
   if (data && typeof data === 'object') {
     const o = data as Record<string, unknown>;
     if (o.detail !== undefined) {
@@ -104,10 +110,22 @@ function messageFromApiBody(data: unknown, status: number, statusText: string): 
   return `Error ${status}: ${statusText || 'solicitud fallida'}`;
 }
 
+function looksLikeServerTraceback(raw: string): boolean {
+  return (
+    raw.includes('Traceback (most recent call last)') ||
+    raw.includes('Exception Group Traceback') ||
+    raw.includes('TypeError:') ||
+    raw.includes('File "/app/')
+  );
+}
+
 /** Evita mostrar códigos de permiso en alertas */
 const MSG_HTTP_PERMISO_DENEGADO = 'No tenés los permisos necesarios para esta acción.';
 
 function userFacingHttpErrorMessage(raw: string, status: number): string {
+  if (status >= 500 && looksLikeServerTraceback(raw)) {
+    return 'Error interno del servidor. Intentá de nuevo en unos segundos.';
+  }
   if (status === 403) {
     const lower = raw.toLowerCase();
     if (

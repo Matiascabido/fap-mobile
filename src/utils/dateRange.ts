@@ -1,17 +1,21 @@
-import { endOfDay, format, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 
-/** ISO local sin `Z` — el backend interpreta en zona horaria del gimnasio. */
+/** ISO local sin `Z` — el backend interpreta en zona horaria del gimnasio (POST turnos). */
 export function toGymLocalDateTime(date: Date): string {
   return format(date, "yyyy-MM-dd'T'HH:mm:ss");
 }
 
+/**
+ * Rango semanal para GET /turnos.
+ * Solo fecha (YYYY-MM-DD) evita el bug del backend al comparar datetimes naive vs aware.
+ */
 export function weekRangeQueryParams(weekStart: Date, weekEnd: Date): {
   desde: string;
   hasta: string;
 } {
   return {
-    desde: toGymLocalDateTime(startOfDay(weekStart)),
-    hasta: toGymLocalDateTime(endOfDay(weekEnd)),
+    desde: format(weekStart, 'yyyy-MM-dd'),
+    hasta: format(weekEnd, 'yyyy-MM-dd'),
   };
 }
 
