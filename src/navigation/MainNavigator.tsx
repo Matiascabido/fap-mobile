@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import {
@@ -10,6 +11,7 @@ import { ROUTES } from '../constants/navigation';
 import { palette } from '../constants/colors';
 import DrawerContent from '../components/navigation/DrawerContent';
 import Header from '../components/navigation/Header';
+import FloatingActionButtons from '../components/common/FloatingActionButtons';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import SociosListScreen from '../screens/socios/SociosListScreen';
@@ -49,41 +51,50 @@ function PlanesNavigator() {
 
 export default function MainNavigator() {
   return (
-    <Drawer.Navigator
-      drawerContent={(props) => <DrawerContent {...props} />}
-      screenOptions={({ navigation, route }) => ({
-        header: () => <Header navigation={navigation} title={getTitleForRoute(route.name)} />,
-        drawerType: 'front',
-        drawerStyle: {
-          width: 288,
-          backgroundColor: palette.slate800,
-        },
-        sceneContainerStyle: {
-          backgroundColor: palette.slate50,
-        },
-      })}
-    >
-      <Drawer.Screen name={ROUTES.HOME as keyof MainDrawerParamList} component={HomeScreen} />
-      <Drawer.Screen name={ROUTES.SOCIOS as keyof MainDrawerParamList} component={SociosNavigator} />
-      <Drawer.Screen name={ROUTES.PLANES as keyof MainDrawerParamList} component={PlanesNavigator} />
-      <Drawer.Screen
-        name={ROUTES.SUSCRIPCIONES as keyof MainDrawerParamList}
-        component={SuscripcionesScreen}
-      />
-      <Drawer.Screen name={ROUTES.TURNERO as keyof MainDrawerParamList} component={TurneroScreen} />
-      <Drawer.Screen
-        name={ROUTES.EVALUACIONES as keyof MainDrawerParamList}
-        component={EvaluacionesScreen}
-      />
-      <Drawer.Screen name={ROUTES.METRICAS as keyof MainDrawerParamList} component={MetricasScreen} />
-      <Drawer.Screen
-        name={ROUTES.TUTORIALES as keyof MainDrawerParamList}
-        component={TutorialesScreen}
-      />
-      <Drawer.Screen name={ROUTES.PERFIL as keyof MainDrawerParamList} component={PerfilScreen} />
-    </Drawer.Navigator>
+    <View style={styles.root}>
+      <Drawer.Navigator
+        drawerContent={(props) => <DrawerContent {...props} />}
+        screenOptions={({ navigation, route }) => ({
+          header: () => <Header navigation={navigation} title={getTitleForRoute(route.name)} />,
+          drawerType: 'front',
+          drawerStyle: {
+            width: 288,
+            backgroundColor: palette.slate800,
+          },
+          sceneContainerStyle: {
+            backgroundColor: palette.slate50,
+          },
+        })}
+      >
+        <Drawer.Screen name={ROUTES.HOME as keyof MainDrawerParamList} component={HomeScreen} />
+        <Drawer.Screen name={ROUTES.SOCIOS as keyof MainDrawerParamList} component={SociosNavigator} />
+        <Drawer.Screen name={ROUTES.PLANES as keyof MainDrawerParamList} component={PlanesNavigator} />
+        <Drawer.Screen
+          name={ROUTES.SUSCRIPCIONES as keyof MainDrawerParamList}
+          component={SuscripcionesScreen}
+        />
+        <Drawer.Screen name={ROUTES.TURNERO as keyof MainDrawerParamList} component={TurneroScreen} />
+        <Drawer.Screen
+          name={ROUTES.EVALUACIONES as keyof MainDrawerParamList}
+          component={EvaluacionesScreen}
+        />
+        <Drawer.Screen name={ROUTES.METRICAS as keyof MainDrawerParamList} component={MetricasScreen} />
+        <Drawer.Screen
+          name={ROUTES.TUTORIALES as keyof MainDrawerParamList}
+          component={TutorialesScreen}
+        />
+        <Drawer.Screen name={ROUTES.PERFIL as keyof MainDrawerParamList} component={PerfilScreen} />
+      </Drawer.Navigator>
+      <FloatingActionButtons />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
 function getTitleForRoute(routeName: string): string {
   const titles: Record<string, string> = {

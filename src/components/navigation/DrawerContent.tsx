@@ -16,18 +16,79 @@ import Avatar from '../common/Avatar';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
-import { drawerItems } from '../../constants/navigation';
+import { drawerItems, ROUTES } from '../../constants/navigation';
+import { getRolLabel } from '../../utils/sessionRole';
 
 export default function DrawerContent(props: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const { hasPermission } = usePermissions();
+  const {
+    hasPermission,
+    isGodOrAdmin,
+    isProfesional,
+    isSocioSinPlan,
+    canManageEvaluaciones,
+  } = usePermissions();
 
-  const visibleItems = drawerItems.filter((item) => {
+  const rolLabel = getRolLabel(user);
+  const isSocioSolo = isSocioSinPlan();
+
+  /**
+   * Determina si un ítem del drawer debe mostrarse.
+   *
+   * Reglas:
+   * 1. Items sin scope → siempre visibles
+   * 2. Socios solo plan club → solo Tutoriales + Métricas
+   * 3. Modo legacy (sin permisos JWT): admin/profes ven todo
+   * 4. Modo scoped: filtra por permiso JWT exacto
+   * 5. Evaluaciones: solo visible para quienes pueden gestionarlas
+   */
+  const isItemVisible = (item: (typeof drawerItems)[0]): boolean => {
+    // Inicio siempre visible
     if (!item.scope) return true;
-    return hasPermission(item.scope);
-  });
 
+    // Métricas siempre visible (sin scope en config)
+    if (item.route === ROUTES.METRICAS) return true;
+
+    // Socio club sin entrenamiento → solo Tutoriales + Métricas
+    if (isSocioSolo) {
+      return item.route === ROUTES.TUTORIALES || item.route === ROUTES.METRICAS;
+    }
+
+    // Evaluaciones: solo staff
+    if (item.route === ROUTES.EVALUACIONES) {
+      return canManageEvaluaciones();
+    }
+
+    // Socios: solo admin/profes
+    if (item.route === ROUTES.SOCIOS) {
+      return isGodOrAdmin() || isProfesional();
+    }
+
+    // Suscripciones: admin/profes también
+    if (item.route === ROUTES.SUSCRIPCIONES) {
+      return isGodOrAdmin() || isProfesional() || hasPermission(item.scope);
+    }
+
+    // Modo legacy: si no hay permisos JWT → permitir según rol
+    const permisos = user?.permisos ?? [];
+    if (permisos.length === 0) {
+      // Admin y profes ven todo en modo legacy
+      if (isGodOrAdmin() || isProfesional()) return true;
+      // Socios/entrenados en legacy ven: Turnero, Planes, Tutoriales, Métricas
+      return (
+        item.route === ROUTES.TURNERO ||
+        item.route === ROUTES.PLANES ||
+        item.route === ROUTES.TUTORIALES ||
+        item.route === ROUTES.METRICAS
+      );
+    }
+
+    // Modo scoped: verificar permiso JWT
+    return hasPermission(item.scope);
+  };
+
+  const visibleItems = drawerItems.filter(isItemVisible);
   const currentRoute = props.state.routeNames[props.state.index];
 
   const handleLogout = () => {
@@ -49,6 +110,7 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
 
   return (
     <View style={styles.container}>
+      {/* Header con datos del usuario */}
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <Avatar nombre={user?.nombre} apellido={user?.apellido} size={56} />
         <Text style={styles.userName} numberOfLines={1}>
@@ -58,10 +120,12 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
           {user?.mail}
         </Text>
         <View style={styles.roleBadge}>
-          <Text style={styles.roleText}>{user?.rol}</Text>
+          <MaterialCommunityIcons name="shield-account" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+          <Text style={styles.roleText}>{rolLabel}</Text>
         </View>
       </View>
 
+      {/* Navegación */}
       <DrawerContentScrollView
         {...props}
         contentContainerStyle={styles.scrollContent}
@@ -83,12 +147,20 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
               <Text style={[styles.menuItemText, isActive && styles.menuItemTextActive]}>
                 {item.name}
               </Text>
+              {isActive && (
+                <View style={styles.activeIndicator} />
+              )}
             </TouchableOpacity>
           );
         })}
       </DrawerContentScrollView>
 
+      {/* Footer */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <TouchableOpacity style={styles.perfilButton} onPress={() => props.navigation.navigate(ROUTES.PERFIL)}>
+          <MaterialCommunityIcons name="account-circle" size={22} color={palette.slate300} />
+          <Text style={styles.perfilButtonText}>Mi perfil</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialCommunityIcons name="logout" size={22} color="#fca5a5" />
           <Text style={styles.logoutText}>Cerrar sesión</Text>
@@ -121,6 +193,8 @@ const styles = StyleSheet.create({
     color: palette.slate400,
   },
   roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: palette.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -159,21 +233,42 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 14,
     color: palette.slate200,
+    flex: 1,
   },
   menuItemTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
+  activeIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
   footer: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.08)',
-    paddingTop: 16,
+    paddingTop: 8,
     paddingHorizontal: 16,
+    gap: 4,
+  },
+  perfilButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  perfilButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: palette.slate300,
+    marginLeft: 14,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 4,
   },
   logoutText: {
     fontSize: 15,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,22 +7,39 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
+import { formatCurrency, formatDate } from '../../utils/formatters';
 import Avatar from '../../components/common/Avatar';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
+import {
+  pagosCobranzasService,
+  PagoCobranza,
+  ResumenMes,
+} from '../../services/api/pagosCobranzas.service';
+import { getRolLabel } from '../../utils/sessionRole';
 
 type ThemeOption = 'light' | 'dark' | 'auto';
+
+const MEDIO_PAGO_LABELS: Record<string, string> = {
+  TRANSFERENCIA: 'Transferencia',
+  EFECTIVO: 'Efectivo',
+  TARJETA: 'Tarjeta',
+  MERCADOPAGO: 'MercadoPago',
+  OTRO: 'Otro',
+};
 
 export default function PerfilScreen() {
   const { user, logout } = useAuth();
   const { theme, isDark, setTheme } = useTheme();
-  const { getPermissionCodes } = usePermissions();
+  const { getPermissionCodes, isProfesionalUser, isGodOrAdmin, isSocioUser, hasPermission } =
+    usePermissions();
 
   const bgColor = isDark ? palette.darkBg : palette.lightBg;
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
@@ -30,6 +47,43 @@ export default function PerfilScreen() {
   const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
 
   const permisos = getPermissionCodes();
+  const rolLabel = getRolLabel(user);
+  const canVerCobranzas = hasPermission('cobranzas:view') || isProfesionalUser || isGodOrAdmin();
+
+  // Cobranzas
+  const [pagos, setPagos] = useState<PagoCobranza[]>([]);
+  const [resumen, setResumen] = useState<ResumenMes | null>(null);
+  const [loadingPagos, setLoadingPagos] = useState(false);
+
+  const loadCobranzas = useCallback(async () => {
+    if (!user || !canVerCobranzas) return;
+    setLoadingPagos(true);
+    try {
+      const params = isProfesionalUser && !isGodOrAdmin()
+        ? { id_usuario_profesional: user.id, limit: 20 }
+        : isSocioUser
+        ? { id_usuario_socio: user.id, limit: 20 }
+        : { limit: 20 };
+
+      const [pagosData, resumenData] = await Promise.all([
+        pagosCobranzasService.getAll(params).catch(() => []),
+        pagosCobranzasService
+          .getResumenMes(
+            new Date().toISOString().slice(0, 7),
+            isProfesionalUser && !isGodOrAdmin() ? user.id : undefined
+          )
+          .catch(() => null),
+      ]);
+      setPagos(pagosData);
+      setResumen(resumenData);
+    } finally {
+      setLoadingPagos(false);
+    }
+  }, [user, canVerCobranzas, isProfesionalUser, isGodOrAdmin, isSocioUser]);
+
+  useEffect(() => {
+    loadCobranzas();
+  }, [loadCobranzas]);
 
   const handleLogout = () => {
     Alert.alert('Cerrar sesión', '¿Estás seguro de que querés cerrar sesión?', [
@@ -44,14 +98,22 @@ export default function PerfilScreen() {
     ]);
   };
 
-  const themeOptions: { key: ThemeOption; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+  const themeOptions: {
+    key: ThemeOption;
+    label: string;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  }[] = [
     { key: 'light', label: 'Claro', icon: 'weather-sunny' },
     { key: 'dark', label: 'Oscuro', icon: 'weather-night' },
-    { key: 'auto', label: 'Automático', icon: 'theme-light-dark' },
+    { key: 'auto', label: 'Auto', icon: 'theme-light-dark' },
   ];
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: bgColor }]} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: bgColor }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header de perfil */}
       <View style={styles.profileHeader}>
         <Avatar nombre={user?.nombre} apellido={user?.apellido} size={88} />
@@ -60,7 +122,7 @@ export default function PerfilScreen() {
         </Text>
         <Text style={[styles.profileEmail, { color: textSecondary }]}>{user?.mail}</Text>
         <View style={styles.badgeRow}>
-          <Badge label={user?.rol || 'Usuario'} variant="info" />
+          <Badge label={rolLabel} variant="info" />
           {user?.grupo ? <Badge label={user.grupo} variant="neutral" /> : null}
         </View>
       </View>
@@ -68,9 +130,30 @@ export default function PerfilScreen() {
       {/* Datos de la cuenta */}
       <Card style={styles.section}>
         <Text style={[styles.sectionTitle, { color: textPrimary }]}>Datos de la cuenta</Text>
-        <InfoRow icon="card-account-details" label="DNI" value={user?.dni || '-'} textPrimary={textPrimary} textSecondary={textSecondary} borderColor={borderColor} />
-        <InfoRow icon="email" label="Email" value={user?.mail || '-'} textPrimary={textPrimary} textSecondary={textSecondary} borderColor={borderColor} />
-        <InfoRow icon="shield-account" label="Rol" value={user?.rol || '-'} textPrimary={textPrimary} textSecondary={textSecondary} borderColor={borderColor} />
+        <InfoRow
+          icon="card-account-details"
+          label="DNI"
+          value={user?.dni || '-'}
+          textPrimary={textPrimary}
+          textSecondary={textSecondary}
+          borderColor={borderColor}
+        />
+        <InfoRow
+          icon="email"
+          label="Email"
+          value={user?.mail || '-'}
+          textPrimary={textPrimary}
+          textSecondary={textSecondary}
+          borderColor={borderColor}
+        />
+        <InfoRow
+          icon="shield-account"
+          label="Rol"
+          value={rolLabel}
+          textPrimary={textPrimary}
+          textSecondary={textSecondary}
+          borderColor={borderColor}
+        />
         <InfoRow
           icon="check-circle"
           label="Estado"
@@ -81,6 +164,85 @@ export default function PerfilScreen() {
           isLast
         />
       </Card>
+
+      {/* Sección cobranzas (profesional/admin) */}
+      {canVerCobranzas && (
+        <Card style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: textPrimary }]}>
+              {isSocioUser ? 'Mis pagos' : 'Cobranzas'}
+            </Text>
+            {loadingPagos && <ActivityIndicator size="small" color={palette.primary} />}
+          </View>
+
+          {/* Resumen del mes */}
+          {resumen && (
+            <View style={[styles.resumenMes, { backgroundColor: `${palette.success}12`, borderColor: `${palette.success}30` }]}>
+              <View style={styles.resumenItem}>
+                <Text style={[styles.resumenLabel, { color: textSecondary }]}>
+                  {isSocioUser ? 'Pagado este mes' : 'Cobrado este mes'}
+                </Text>
+                <Text style={[styles.resumenValue, { color: palette.success }]}>
+                  {formatCurrency(resumen.total_cobrado ?? 0)}
+                </Text>
+              </View>
+              {resumen.cantidad_pagos != null && (
+                <View style={styles.resumenItem}>
+                  <Text style={[styles.resumenLabel, { color: textSecondary }]}>Movimientos</Text>
+                  <Text style={[styles.resumenValue, { color: textPrimary }]}>
+                    {resumen.cantidad_pagos}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Historial de pagos */}
+          {pagos.length === 0 && !loadingPagos ? (
+            <Text style={[styles.emptyText, { color: textSecondary }]}>
+              No hay movimientos registrados
+            </Text>
+          ) : (
+            pagos.slice(0, 8).map((pago, i) => {
+              const esUltimo = i === Math.min(pagos.length, 8) - 1;
+              return (
+                <View
+                  key={pago.id}
+                  style={[
+                    styles.pagoRow,
+                    !esUltimo && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor },
+                  ]}
+                >
+                  <View style={[styles.pagoIcon, { backgroundColor: `${palette.success}15` }]}>
+                    <MaterialCommunityIcons name="cash" size={16} color={palette.success} />
+                  </View>
+                  <View style={styles.pagoInfo}>
+                    <Text style={[styles.pagoSocio, { color: textPrimary }]} numberOfLines={1}>
+                      {isSocioUser
+                        ? pago.profesional
+                          ? `${pago.profesional.nombre ?? ''} ${pago.profesional.apellido ?? ''}`.trim()
+                          : 'Pago'
+                        : pago.socio
+                        ? `${pago.socio.nombre ?? ''} ${pago.socio.apellido ?? ''}`.trim()
+                        : 'Socio'}
+                    </Text>
+                    <Text style={[styles.pagoMedio, { color: textSecondary }]}>
+                      {MEDIO_PAGO_LABELS[pago.medio_pago] ?? pago.medio_pago}
+                      {pago.nota ? ` · ${pago.nota}` : ''}
+                    </Text>
+                    <Text style={[styles.pagoFecha, { color: textSecondary }]}>
+                      {formatDate(pago.fecha_pago)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.pagoMonto, { color: palette.success }]}>
+                    {formatCurrency(pago.monto)}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </Card>
+      )}
 
       {/* Apariencia */}
       <Card style={styles.section}>
@@ -105,12 +267,10 @@ export default function PerfilScreen() {
               >
                 <MaterialCommunityIcons
                   name={option.icon}
-                  size={24}
+                  size={22}
                   color={isSelected ? '#FFFFFF' : textSecondary}
                 />
-                <Text
-                  style={[styles.themeOptionText, { color: isSelected ? '#FFFFFF' : textPrimary }]}
-                >
+                <Text style={[styles.themeOptionText, { color: isSelected ? '#FFFFFF' : textPrimary }]}>
                   {option.label}
                 </Text>
               </TouchableOpacity>
@@ -127,7 +287,10 @@ export default function PerfilScreen() {
           </Text>
           <View style={styles.permisosGrid}>
             {permisos.slice(0, 12).map((permiso) => (
-              <View key={permiso} style={[styles.permisoChip, { backgroundColor: `${palette.info}15` }]}>
+              <View
+                key={permiso}
+                style={[styles.permisoChip, { backgroundColor: `${palette.info}15` }]}
+              >
                 <Text style={[styles.permisoText, { color: palette.info }]}>{permiso}</Text>
               </View>
             ))}
@@ -140,7 +303,7 @@ export default function PerfilScreen() {
         </Card>
       )}
 
-      {/* Acerca de */}
+      {/* Información */}
       <Card style={styles.section}>
         <Text style={[styles.sectionTitle, { color: textPrimary }]}>Información</Text>
         <MenuRow
@@ -169,11 +332,13 @@ export default function PerfilScreen() {
       </TouchableOpacity>
 
       <Text style={[styles.footer, { color: textSecondary }]}>
-        FAP · Funcional Atlético Personalizado
+        FAP · Guía FA — Funcional Atlético Personalizado
       </Text>
     </ScrollView>
   );
 }
+
+// ─── Sub-componentes ─────────────────────────────────────────────────────────
 
 interface InfoRowProps {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -242,114 +407,67 @@ function MenuRow({ icon, label, value, onPress, textPrimary, textSecondary, bord
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  profileHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  profileName: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginTop: 12,
-  },
-  profileEmail: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    marginBottom: 12,
+  container: { flex: 1 },
+  content: { padding: 16, paddingBottom: 100 },
+  profileHeader: { alignItems: 'center', marginBottom: 24 },
+  profileName: { fontSize: 22, fontWeight: '700', marginTop: 12 },
+  profileEmail: { fontSize: 14, marginTop: 4 },
+  badgeRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  section: { marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  sectionSubtitle: { fontSize: 13, marginBottom: 12 },
+  sectionHeaderRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4,
   },
   infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 12,
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 12, gap: 12,
   },
-  infoLabel: {
-    fontSize: 14,
-    flex: 1,
-  },
+  infoLabel: { fontSize: 14, flex: 1 },
   infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    maxWidth: '55%',
-    textAlign: 'right',
+    fontSize: 14, fontWeight: '600',
+    maxWidth: '55%', textAlign: 'right',
   },
-  themeOptions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-  },
+  themeOptions: { flexDirection: 'row', gap: 10, marginTop: 8 },
   themeOption: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
+    flex: 1, alignItems: 'center', paddingVertical: 14,
+    borderRadius: 12, borderWidth: 1, gap: 6,
   },
-  themeOptionText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  themeOptionText: { fontSize: 12, fontWeight: '600' },
   permisosGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-    alignItems: 'center',
+    flexDirection: 'row', flexWrap: 'wrap',
+    gap: 8, marginTop: 8, alignItems: 'center',
   },
-  permisoChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  permisoText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  morePermisos: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  permisoChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  permisoText: { fontSize: 12, fontWeight: '600' },
+  morePermisos: { fontSize: 12, fontWeight: '600' },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.error,
-    paddingVertical: 15,
-    borderRadius: 16,
-    gap: 8,
-    marginTop: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: palette.error, paddingVertical: 15, borderRadius: 16,
+    gap: 8, marginTop: 8,
   },
-  logoutText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+  logoutText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  footer: { textAlign: 'center', fontSize: 12, marginTop: 24 },
+  // Cobranzas
+  resumenMes: {
+    flexDirection: 'row', borderRadius: 12,
+    borderWidth: 1, padding: 14, marginBottom: 16, gap: 8,
   },
-  footer: {
-    textAlign: 'center',
-    fontSize: 12,
-    marginTop: 24,
+  resumenItem: { flex: 1, alignItems: 'center' },
+  resumenLabel: { fontSize: 12, textAlign: 'center' },
+  resumenValue: { fontSize: 18, fontWeight: '800', marginTop: 4 },
+  emptyText: { fontSize: 14, textAlign: 'center', paddingVertical: 16 },
+  pagoRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 12, gap: 12,
   },
+  pagoIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  pagoInfo: { flex: 1 },
+  pagoSocio: { fontSize: 14, fontWeight: '600' },
+  pagoMedio: { fontSize: 12, marginTop: 2 },
+  pagoFecha: { fontSize: 11, marginTop: 2 },
+  pagoMonto: { fontSize: 15, fontWeight: '800' },
 });

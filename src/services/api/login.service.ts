@@ -2,8 +2,8 @@ import { apiFetch } from './http';
 import { tokenStorage, userStorage } from './storage';
 
 export interface LoginRequestDTO {
-  user_mail: string;
-  user_pass: string;
+  username: string;
+  password: string;
 }
 
 export interface PermisoToken {
@@ -29,8 +29,8 @@ export interface LoginResponse {
 }
 
 export const loginService = {
-  async login(user_mail: string, user_pass: string): Promise<Usuario> {
-    const payload: LoginRequestDTO = { user_mail, user_pass };
+  async login(username: string, password: string): Promise<Usuario> {
+    const payload: LoginRequestDTO = { username, password };
     
     const response = await apiFetch<LoginResponse>(
       '/login',

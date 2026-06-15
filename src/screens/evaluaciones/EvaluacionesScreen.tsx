@@ -28,9 +28,10 @@ import EmptyState from '../../components/common/EmptyState';
 export default function EvaluacionesScreen() {
   const { isDark } = useTheme();
   const { user } = useAuth();
-  const { isSocio } = usePermissions();
+  const { canManageEvaluaciones } = usePermissions();
 
-  const esSocio = isSocio();
+  // Socios/entrenados NO gestionan evaluaciones: solo las ven
+  const esSocio = !canManageEvaluaciones();
 
   const [selectedSocio, setSelectedSocio] = useState<Socio | null>(null);
   const [registros, setRegistros] = useState<EvaluacionRegistroResumen[]>([]);

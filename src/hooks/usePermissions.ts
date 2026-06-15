@@ -1,26 +1,58 @@
 import { useAuth } from './useAuth';
-import { PermisoToken } from '../services/api/login.service';
+import {
+  esRolGod,
+  esRolAdmin,
+  esRolGodOAdmin,
+  esRolProfesional,
+  esRolEntrenado,
+  esRolSocioClub,
+  esRolEntrnadoOff,
+  puedeGestionarTurnosAdministracion,
+  puedeInscribirseATurnos,
+  puedeVerVistaMesTurnero,
+  esPerfilSocioSinPlanEntrenamiento,
+  esRolAdministradorMetricasExcel,
+  puedeVerColumnaDniListadoSocios,
+  puedeGestionarEvaluaciones,
+  puedeGestionarSocios,
+  getRolLabel,
+} from '../utils/sessionRole';
+
+export interface PermisoToken {
+  codigo: string;
+  scope: string;
+}
 
 /**
- * Hook para verificar permisos del usuario actual
+ * Hook para verificar permisos del usuario actual.
+ * Combina permisos JWT (token scopes) con reglas de negocio por rol.
  */
 export function usePermissions() {
   const { user } = useAuth();
 
+  // ─── Permisos JWT ─────────────────────────────────────────────────────────
+
   /**
-   * Verifica si el usuario tiene un permiso específico
-   * @param codigo - Código del permiso (ej: "usuarios:view")
-   * @param scopeRequired - Scope requerido ("all", "related", "own"). Si no se especifica, cualquier scope es válido
+   * Verifica si el usuario tiene un permiso JWT específico
+   * Soporta modo legacy (sin permisos en token → todo permitido para admins)
    */
   const hasPermission = (codigo: string, scopeRequired?: string): boolean => {
-    if (!user || !user.permisos) return false;
+    if (!user) return false;
 
-    const permiso = user.permisos.find((p: PermisoToken) => p.codigo === codigo);
+    // Modo legacy: si no hay permisos en el token, los admins/god tienen todo
+    const permisos: PermisoToken[] = user.permisos ?? [];
+    if (permisos.length === 0) {
+      return esRolGodOAdmin(user) || esRolProfesional(user);
+    }
+
+    // Wildcard: el usuario tiene permiso * (dios)
+    const wildcard = permisos.find((p) => p.codigo === '*');
+    if (wildcard) return true;
+
+    const permiso = permisos.find((p) => p.codigo === codigo);
     if (!permiso) return false;
 
     if (!scopeRequired) return true;
-
-    // Verificar scope específico
     return permiso.scope === scopeRequired || permiso.scope === 'all';
   };
 
@@ -42,33 +74,67 @@ export function usePermissions() {
    * Obtiene todos los códigos de permisos del usuario
    */
   const getPermissionCodes = (): string[] => {
-    if (!user || !user.permisos) return [];
-    return user.permisos.map((p: PermisoToken) => p.codigo);
+    if (!user?.permisos) return [];
+    return (user.permisos as PermisoToken[]).map((p) => p.codigo);
   };
 
-  /**
-   * Verifica si el usuario es administrador (rol GOD)
-   */
-  const isAdminUser = user?.rol === 'GOD';
-  const isProfesionalUser = user?.rol === 'PROFESIONAL' || user?.rol === 'GOD';
-  const isSocioUser = user?.rol === 'ENTRENADO';
+  // ─── Roles (reglas de negocio) ────────────────────────────────────────────
 
-  const isAdmin = (): boolean => isAdminUser;
+  const isGod = () => esRolGod(user);
+  const isAdmin = () => esRolAdmin(user);
+  const isGodOrAdmin = () => esRolGodOAdmin(user);
+  const isProfesional = () => esRolProfesional(user);
+  const isEntrenado = () => esRolEntrenado(user);
+  const isSocioClub = () => esRolSocioClub(user);
+  const isEntrnadoOff = () => esRolEntrnadoOff(user);
 
-  const isProfesional = (): boolean => isProfesionalUser;
+  // Alias histórico (compatible con código existente)
+  const isAdminUser = esRolGodOAdmin(user);
+  const isProfesionalUser = esRolProfesional(user);
+  const isSocioUser = esRolEntrenado(user) || esRolSocioClub(user);
+  const isEntrnadoUser = esRolEntrenado(user);
 
-  const isSocio = (): boolean => isSocioUser;
+  // ─── Capacidades funcionales ─────────────────────────────────────────────
+
+  const canManageTurnos = () => puedeGestionarTurnosAdministracion(user);
+  const canEnrollTurnos = () => puedeInscribirseATurnos(user);
+  const canViewMonthCalendar = () => puedeVerVistaMesTurnero(user);
+  const isSocioSinPlan = () => esPerfilSocioSinPlanEntrenamiento(user);
+  const canExportMetricasExcel = () => esRolAdministradorMetricasExcel(user);
+  const canViewAllDni = () => puedeVerColumnaDniListadoSocios(user);
+  const canManageEvaluaciones = () => puedeGestionarEvaluaciones(user);
+  const canManageSocios = () => puedeGestionarSocios(user);
+
+  const rolLabel = getRolLabel(user);
 
   return {
+    // JWT permissions
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
     getPermissionCodes,
+    // Role booleans (functions)
+    isGod,
     isAdmin,
+    isGodOrAdmin,
     isProfesional,
-    isSocio,
+    isEntrenado,
+    isSocioClub,
+    isEntrnadoOff,
+    // Role booleans (values - retrocompatibilidad)
     isAdminUser,
     isProfesionalUser,
     isSocioUser,
+    isEntrnadoUser,
+    // Functional capabilities
+    canManageTurnos,
+    canEnrollTurnos,
+    canViewMonthCalendar,
+    isSocioSinPlan,
+    canExportMetricasExcel,
+    canViewAllDni,
+    canManageEvaluaciones,
+    canManageSocios,
+    rolLabel,
   };
 }

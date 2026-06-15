@@ -59,6 +59,13 @@ export function diasHastaVencimiento(s: SuscripcionData): number {
   return Math.round(diff / (1000 * 60 * 60 * 24));
 }
 
+export interface CreateSuscripcionDTO {
+  id_usuario: string;
+  id_suscripcion_detalle: string;
+  fecha_vencimiento: string;
+  id_usuario_profesional: string;
+}
+
 export const suscripcionesService = {
   /**
    * Lista todas las suscripciones
@@ -100,6 +107,37 @@ export const suscripcionesService = {
   async getByUsuario(usuarioId: string): Promise<SuscripcionData[]> {
     const data = await apiFetch<SuscripcionData[]>(
       `/suscripciones/usuario/${encodeURIComponent(usuarioId)}`,
+      { method: 'GET' }
+    );
+    return Array.isArray(data) ? data : [];
+  },
+
+  /**
+   * Crea una nueva suscripción
+   */
+  async create(dto: CreateSuscripcionDTO): Promise<SuscripcionData> {
+    return apiFetch<SuscripcionData>('/suscripciones', {
+      method: 'POST',
+      data: dto,
+    });
+  },
+
+  /**
+   * Actualiza una suscripción
+   */
+  async update(id: string, dto: Partial<CreateSuscripcionDTO>): Promise<SuscripcionData> {
+    return apiFetch<SuscripcionData>(`/suscripciones/${id}`, {
+      method: 'PATCH',
+      data: dto,
+    });
+  },
+
+  /**
+   * Suscripciones por profesional
+   */
+  async getByProfesional(profesionalId: string): Promise<SuscripcionData[]> {
+    const data = await apiFetch<SuscripcionData[]>(
+      `/suscripciones?id_usuario_profesional=${encodeURIComponent(profesionalId)}&skip=0&limit=200`,
       { method: 'GET' }
     );
     return Array.isArray(data) ? data : [];

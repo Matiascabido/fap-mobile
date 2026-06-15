@@ -14,19 +14,28 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useTheme } from '../../context/ThemeContext';
 import { palette } from '../../constants/colors';
 import { getGreeting, formatLongDate, capitalize } from '../../utils/formatters';
+import { getRolLabel } from '../../utils/sessionRole';
 
 interface QuickAccess {
   title: string;
   description: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   route: string;
-  scope?: string;
+  accent?: string;
 }
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { hasPermission, isProfesionalUser, isSocioUser } = usePermissions();
+  const {
+    hasPermission,
+    isProfesionalUser,
+    isSocioSinPlan,
+    isGodOrAdmin,
+    canManageTurnos,
+    canEnrollTurnos,
+    canManageEvaluaciones,
+  } = usePermissions();
   const { isDark } = useTheme();
 
   const bgColor = isDark ? palette.darkBg : palette.slate50;
@@ -37,7 +46,19 @@ export default function HomeScreen() {
 
   const greeting = getGreeting();
   const today = formatLongDate(new Date());
-  const quickAccesses = getQuickAccesses(hasPermission, isProfesionalUser, isSocioUser);
+  const rolLabel = getRolLabel(user);
+
+  const isSocioSolo = isSocioSinPlan();
+
+  const quickAccesses = buildQuickAccesses({
+    isSocioSolo,
+    isProfesional: isProfesionalUser,
+    isAdmin: isGodOrAdmin(),
+    canManageTurnos: canManageTurnos(),
+    canEnrollTurnos: canEnrollTurnos(),
+    canManageEvaluaciones: canManageEvaluaciones(),
+    hasPermission,
+  });
 
   return (
     <ScrollView
@@ -45,6 +66,7 @@ export default function HomeScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* Hero card */}
       <LinearGradient
         colors={['#0f172a', '#7f1d1d']}
         start={{ x: 0, y: 0 }}
@@ -52,22 +74,34 @@ export default function HomeScreen() {
         style={styles.heroCard}
       >
         <View style={styles.heroBlob} />
+        <View style={styles.heroBlob2} />
         <View style={styles.heroContent}>
           <Text style={styles.heroDate}>{capitalize(today).toUpperCase()}</Text>
           <Text style={styles.heroGreeting}>
             {greeting},{' '}
-            <Text style={styles.heroName}>{user?.nombre}</Text>!
+            <Text style={styles.heroName}>{user?.nombre ?? 'usuario'}</Text>!
           </Text>
           <Text style={styles.heroSubtitle}>
             Desde acá podés acceder a todas las secciones del club.
           </Text>
           <View style={styles.rolePill}>
             <MaterialCommunityIcons name="shield-account" size={14} color="#FFFFFF" />
-            <Text style={styles.roleText}>{user?.rol}</Text>
+            <Text style={styles.roleText}>{rolLabel}</Text>
           </View>
         </View>
       </LinearGradient>
 
+      {/* Mensaje contextual para socios club (sin plan) */}
+      {isSocioSolo && (
+        <View style={[styles.infoBanner, { backgroundColor: `${palette.info}18`, borderColor: `${palette.info}40` }]}>
+          <MaterialCommunityIcons name="information" size={18} color={palette.info} />
+          <Text style={[styles.infoBannerText, { color: palette.info }]}>
+            Accedé a los tutoriales y videos de entrenamiento disponibles para vos.
+          </Text>
+        </View>
+      )}
+
+      {/* Accesos rápidos */}
       <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
         <Text style={[styles.sectionTitle, { color: textPrimary }]}>Accesos rápidos</Text>
         <Text style={[styles.sectionSubtitle, { color: textSecondary }]}>
@@ -78,15 +112,30 @@ export default function HomeScreen() {
           {quickAccesses.map((item) => (
             <TouchableOpacity
               key={item.route}
-              style={[styles.accessCard, { backgroundColor: isDark ? palette.slate800 : palette.slate50, borderColor }]}
+              style={[
+                styles.accessCard,
+                { backgroundColor: isDark ? palette.slate800 : palette.slate50, borderColor },
+              ]}
               onPress={() => navigation.navigate(item.route)}
               activeOpacity={0.85}
             >
-              <View style={styles.accessIconContainer}>
-                <MaterialCommunityIcons name={item.icon} size={26} color={palette.primary} />
+              <View
+                style={[
+                  styles.accessIconContainer,
+                  { backgroundColor: `${item.accent ?? palette.primary}18` },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={item.icon}
+                  size={26}
+                  color={item.accent ?? palette.primary}
+                />
               </View>
               <Text style={[styles.accessTitle, { color: textPrimary }]}>{item.title}</Text>
-              <Text style={[styles.accessDescription, { color: textSecondary }]} numberOfLines={2}>
+              <Text
+                style={[styles.accessDescription, { color: textSecondary }]}
+                numberOfLines={2}
+              >
                 {item.description}
               </Text>
             </TouchableOpacity>
@@ -97,67 +146,116 @@ export default function HomeScreen() {
   );
 }
 
-function getQuickAccesses(
-  hasPermission: (scope: string) => boolean,
-  isProfesional: boolean,
-  isSocio: boolean
-): QuickAccess[] {
-  const allAccesses: QuickAccess[] = [
-    {
-      title: 'Métricas',
-      description: 'Visualizá estadísticas y reportes',
-      icon: 'chart-line',
-      route: 'Metricas',
-      scope: 'metricas:view',
-    },
-    {
+// ─── Lógica de accesos por rol ─────────────────────────────────────────────
+
+interface BuildAccessesParams {
+  isSocioSolo: boolean;
+  isProfesional: boolean;
+  isAdmin: boolean;
+  canManageTurnos: boolean;
+  canEnrollTurnos: boolean;
+  canManageEvaluaciones: boolean;
+  hasPermission: (codigo: string) => boolean;
+}
+
+function buildQuickAccesses(p: BuildAccessesParams): QuickAccess[] {
+  // Socios club sin entrenamiento → solo tutoriales
+  if (p.isSocioSolo) {
+    return [
+      {
+        title: 'Tutoriales',
+        description: 'Videos de ejercicios y técnicas',
+        icon: 'video',
+        route: 'Tutoriales',
+        accent: palette.info,
+      },
+      {
+        title: 'Métricas',
+        description: 'Visualizá tu actividad',
+        icon: 'chart-line',
+        route: 'Metricas',
+      },
+    ];
+  }
+
+  const accesses: QuickAccess[] = [];
+
+  // Métricas — siempre
+  accesses.push({
+    title: 'Métricas',
+    description: 'Dashboard según tu rol',
+    icon: 'chart-line',
+    route: 'Metricas',
+  });
+
+  // Turnero
+  if (p.canManageTurnos || p.canEnrollTurnos || p.hasPermission('turnero:view')) {
+    accesses.push({
       title: 'Turnero',
-      description: 'Gestioná clases y turnos',
+      description: p.canManageTurnos ? 'Gestioná clases y turnos' : 'Inscribite a tus clases',
       icon: 'calendar-clock',
       route: 'Turnero',
-      scope: 'turnero:view',
-    },
-    {
-      title: 'Socios',
-      description: 'Administrá los socios del gimnasio',
-      icon: 'account-group',
-      route: 'Socios',
-      scope: 'usuarios:view',
-    },
-    {
+      accent: palette.success,
+    });
+  }
+
+  // Planes
+  if (p.hasPermission('planes:view')) {
+    accesses.push({
       title: 'Planes',
-      description: 'Revisá tus planes de entrenamiento',
+      description: p.isProfesional || p.isAdmin ? 'Creá y gestioná planes' : 'Tu plan de entrenamiento',
       icon: 'dumbbell',
       route: 'Planes',
-      scope: 'planes:view',
-    },
-    {
+      accent: palette.warning,
+    });
+  }
+
+  // Tutoriales
+  if (p.hasPermission('tutoriales:view')) {
+    accesses.push({
+      title: 'Tutoriales',
+      description: 'Videos de ejercicios y técnicas',
+      icon: 'video',
+      route: 'Tutoriales',
+      accent: palette.info,
+    });
+  }
+
+  // Socios (admin/profes)
+  if (p.isAdmin || p.isProfesional) {
+    if (p.hasPermission('usuarios:view')) {
+      accesses.push({
+        title: 'Socios',
+        description: 'Administrá los socios',
+        icon: 'account-group',
+        route: 'Socios',
+      });
+    }
+  }
+
+  // Suscripciones (admin/profes)
+  if ((p.isAdmin || p.isProfesional) && p.hasPermission('suscripciones:view')) {
+    accesses.push({
       title: 'Suscripciones',
       description: 'Controlá vencimientos y pagos',
       icon: 'card-account-details',
       route: 'Suscripciones',
-      scope: 'suscripciones:view',
-    },
-    {
+      accent: palette.primary,
+    });
+  }
+
+  // Evaluaciones (admin/profes)
+  if (p.canManageEvaluaciones && p.hasPermission('evaluaciones:view')) {
+    accesses.push({
       title: 'Evaluaciones',
-      description: 'Seguimiento de progreso físico',
+      description: 'Seguimiento físico de socios',
       icon: 'clipboard-text',
       route: 'Evaluaciones',
-      scope: 'evaluaciones:view',
-    },
-    {
-      title: 'Tutoriales',
-      description: 'Aprendé técnicas y ejercicios',
-      icon: 'video',
-      route: 'Tutoriales',
-      scope: 'tutoriales:view',
-    },
-  ];
+      accent: palette.warning,
+    });
+  }
 
-  return allAccesses.filter((access) => {
-    if (!access.scope) return true;
-    return hasPermission(access.scope);
-  });
+  return accesses;
 }
 
 const styles = StyleSheet.create({
@@ -166,7 +264,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 100,
   },
   heroCard: {
     borderRadius: 22,
@@ -185,7 +283,16 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  heroBlob2: {
+    position: 'absolute',
+    bottom: -20,
+    left: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(220,38,38,0.15)',
   },
   heroContent: {
     padding: 20,
@@ -231,6 +338,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 6,
   },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
   sectionCard: {
     borderRadius: 22,
     borderWidth: 1,
@@ -262,7 +384,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(220,38,38,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
