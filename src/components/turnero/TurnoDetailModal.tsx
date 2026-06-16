@@ -10,8 +10,9 @@ import {
   Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../../context/ThemeContext';
+import { useAppTheme } from '../../context/ThemeContext';
 import { palette } from '../../constants/colors';
+import { typography } from '../../theme/iosTheme';
 import { TurnoDetalleVista } from '../../utils/turnoMapper';
 import { turnoSinCupo } from '../../utils/turneroCupo';
 import Badge from '../common/Badge';
@@ -39,19 +40,16 @@ export default function TurnoDetailModal({
   onEdit,
   onDelete,
 }: TurnoDetailModalProps) {
-  const { isDark } = useTheme();
+  const { colors } = useAppTheme();
 
   if (!turno) return null;
 
-  const bgColor = isDark ? palette.darkCard : '#FFFFFF';
-  const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
-  const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
-  const borderColor = isDark ? palette.darkBorder : palette.slate200;
   const bloqueado = inscripcionEnProceso;
   const sinCupos = turnoSinCupo({
     cupos_maximos: turno.cupo,
     cantidad_inscriptos: turno.inscritos,
   });
+  const puedeInscribir = canEnroll && !turno.cancelado && (!sinCupos || turno.inscripto);
 
   return (
     <Modal
@@ -62,84 +60,85 @@ export default function TurnoDetailModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.sheet, { backgroundColor: bgColor }]}>
-          <View style={styles.handle} />
+        <View style={[styles.sheet, { backgroundColor: colors.secondaryGroupedBackground }]}>
+          <View style={[styles.handle, { backgroundColor: colors.fill }]} />
 
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: palette.primary }]}>Detalle del turno</Text>
-              <Text style={[styles.subtitle, { color: textSecondary }]}>
-                Información completa de la clase
+              <Text style={[styles.title, { color: colors.label }]}>{turno.clase}</Text>
+              <Text style={[styles.subtitle, { color: colors.secondaryLabel }]}>
+                {turno.fechaLabel}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} disabled={bloqueado} style={styles.closeBtn}>
-              <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
+              <MaterialCommunityIcons name="close" size={22} color={colors.secondaryLabel} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            <View style={styles.rowPair}>
-              <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: textSecondary }]}>FECHA</Text>
-                <Text style={[styles.fieldValue, { color: textPrimary }]}>{turno.fechaLabel}</Text>
-              </View>
-              <View style={[styles.field, styles.fieldRight]}>
-                <Text style={[styles.fieldLabel, { color: textSecondary }]}>HORARIO</Text>
-                <Text style={[styles.fieldValue, { color: textPrimary }]}>
-                  {turno.horaInicio} – {turno.horaFin}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.rowPair}>
-              <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: textSecondary }]}>CLASE</Text>
-                <Text style={[styles.fieldValueMd, { color: textPrimary }]}>{turno.clase}</Text>
-              </View>
-              <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: textSecondary }]}>INSTRUCTOR</Text>
-                <Text style={[styles.fieldValueMd, { color: textPrimary }]}>{turno.instructor}</Text>
-              </View>
-            </View>
-
-            <View style={styles.rowPair}>
-              <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: textSecondary }]}>SALA</Text>
-                <Text style={[styles.fieldValueMd, { color: textPrimary }]}>{turno.sala}</Text>
-              </View>
-              <View style={styles.field}>
-                <View style={styles.cupoLabelRow}>
-                  <Text style={[styles.fieldLabel, { color: textSecondary }]}>CUPO</Text>
-                  {sinCupos && !turno.inscripto ? (
-                    <Badge label="Cupo lleno" variant="warning" />
-                  ) : null}
+            <View style={[styles.infoCard, { backgroundColor: colors.tertiaryGroupedBackground }]}>
+              <View style={styles.rowPair}>
+                <View style={styles.field}>
+                  <Text style={[styles.fieldLabel, typography.sectionHeader, { color: colors.secondaryLabel }]}>
+                    Horario
+                  </Text>
+                  <Text style={[styles.fieldValue, { color: colors.label }]}>
+                    {turno.horaInicio} – {turno.horaFin}
+                  </Text>
                 </View>
-                <Text style={[styles.fieldValueMd, { color: textPrimary }]}>
-                  {turno.inscritos}/{turno.cupo}
-                </Text>
+                <View style={[styles.field, styles.fieldRight]}>
+                  <Text style={[styles.fieldLabel, typography.sectionHeader, { color: colors.secondaryLabel }]}>
+                    Cupo
+                  </Text>
+                  <Text style={[styles.fieldValue, { color: colors.label }]}>
+                    {turno.inscritos}/{turno.cupo}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: colors.separator }]} />
+
+              <View style={styles.rowPair}>
+                <View style={styles.field}>
+                  <Text style={[styles.fieldLabel, typography.sectionHeader, { color: colors.secondaryLabel }]}>
+                    Instructor
+                  </Text>
+                  <Text style={[styles.fieldValueMd, { color: colors.label }]}>{turno.instructor}</Text>
+                </View>
+                <View style={styles.field}>
+                  <Text style={[styles.fieldLabel, typography.sectionHeader, { color: colors.secondaryLabel }]}>
+                    Sala
+                  </Text>
+                  <Text style={[styles.fieldValueMd, { color: colors.label }]}>{turno.sala}</Text>
+                </View>
               </View>
             </View>
 
             {turno.descripcionNotas ? (
-              <View style={styles.notesBox}>
-                <Text style={[styles.fieldLabel, { color: textSecondary }]}>NOTAS</Text>
-                <Text style={[styles.notesText, { color: textPrimary }]}>{turno.descripcionNotas}</Text>
+              <View style={[styles.notesBox, { backgroundColor: colors.tertiaryGroupedBackground }]}>
+                <Text style={[styles.fieldLabel, typography.sectionHeader, { color: colors.secondaryLabel }]}>
+                  Notas
+                </Text>
+                <Text style={[styles.notesText, { color: colors.label }]}>{turno.descripcionNotas}</Text>
               </View>
             ) : null}
 
             <View style={styles.badgesRow}>
               {turno.inscripto ? <Badge label="Inscripto" variant="success" /> : null}
+              {sinCupos && !turno.inscripto ? <Badge label="Cupo lleno" variant="warning" /> : null}
               {turno.cancelado ? <Badge label="Cancelado" variant="error" /> : null}
               {turno.esRecurrente ? <Badge label="Recurrente" variant="info" /> : null}
             </View>
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: borderColor }]}>
-            {canEnroll && !turno.cancelado ? (
+          <View style={[styles.footer, { borderTopColor: colors.separator }]}>
+            {puedeInscribir ? (
               <TouchableOpacity
                 style={[
                   styles.primaryBtn,
-                  turno.inscripto ? styles.primaryBtnSuccess : styles.primaryBtnDanger,
+                  {
+                    backgroundColor: turno.inscripto ? palette.success : colors.tint,
+                  },
                   (bloqueado || (sinCupos && !turno.inscripto)) && styles.btnDisabled,
                 ]}
                 onPress={() => onToggleSubscription(turno.id)}
@@ -159,11 +158,11 @@ export default function TurnoDetailModal({
               <View style={styles.manageRow}>
                 {onEdit ? (
                   <TouchableOpacity
-                    style={[styles.secondaryBtn, { backgroundColor: isDark ? palette.slate700 : palette.slate800 }]}
+                    style={[styles.secondaryBtn, { backgroundColor: colors.tertiaryGroupedBackground }]}
                     onPress={() => onEdit(turno.id)}
                     disabled={bloqueado}
                   >
-                    <Text style={styles.secondaryBtnText}>Editar</Text>
+                    <Text style={[styles.secondaryBtnText, { color: colors.label }]}>Editar</Text>
                   </TouchableOpacity>
                 ) : null}
                 {onDelete ? (
@@ -172,18 +171,18 @@ export default function TurnoDetailModal({
                     onPress={() => onDelete(turno.id)}
                     disabled={bloqueado}
                   >
-                    <Text style={styles.secondaryBtnText}>Eliminar</Text>
+                    <Text style={[styles.secondaryBtnText, { color: '#FFF' }]}>Eliminar</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
             ) : null}
 
             <TouchableOpacity
-              style={[styles.closeFooterBtn, { backgroundColor: isDark ? palette.slate700 : palette.slate200 }]}
+              style={[styles.closeFooterBtn, { backgroundColor: colors.tertiaryGroupedBackground }]}
               onPress={onClose}
               disabled={bloqueado}
             >
-              <Text style={[styles.closeFooterText, { color: textPrimary }]}>Cerrar</Text>
+              <Text style={[styles.closeFooterText, { color: colors.label }]}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -222,20 +221,16 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '800' },
   subtitle: { fontSize: 12, marginTop: 2 },
   closeBtn: { padding: 8 },
-  body: { paddingHorizontal: 20, maxHeight: 360 },
-  rowPair: { flexDirection: 'row', gap: 16, marginBottom: 16 },
+  body: { paddingHorizontal: 20, maxHeight: 400 },
+  infoCard: { borderRadius: 12, padding: 16, marginBottom: 12 },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 12 },
+  rowPair: { flexDirection: 'row', gap: 16 },
   field: { flex: 1 },
   fieldRight: { alignItems: 'flex-end' },
-  fieldLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  fieldValue: { fontSize: 17, fontWeight: '800' },
-  fieldValueMd: { fontSize: 15, fontWeight: '700' },
-  cupoLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  notesBox: { marginBottom: 12 },
+  fieldLabel: { marginBottom: 4 },
+  fieldValue: { fontSize: 17, fontWeight: '700' },
+  fieldValueMd: { fontSize: 15, fontWeight: '600' },
+  notesBox: { borderRadius: 12, padding: 16, marginBottom: 12 },
   notesText: { fontSize: 14, lineHeight: 20, marginTop: 4 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   footer: {
@@ -246,28 +241,26 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: 'center',
     minHeight: 48,
     justifyContent: 'center',
   },
-  primaryBtnDanger: { backgroundColor: palette.primary },
-  primaryBtnSuccess: { backgroundColor: palette.success },
   primaryBtnText: { color: '#FFF', fontWeight: '800', fontSize: 15 },
   btnDisabled: { opacity: 0.55 },
   manageRow: { flexDirection: 'row', gap: 10 },
   secondaryBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
+  secondaryBtnText: { fontWeight: '700', fontSize: 14 },
   deleteBtn: { backgroundColor: palette.error },
-  secondaryBtnText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
   closeFooterBtn: {
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
-  closeFooterText: { fontWeight: '800', fontSize: 15 },
+  closeFooterText: { fontWeight: '700', fontSize: 15 },
 });

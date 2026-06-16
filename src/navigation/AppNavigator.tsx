@@ -3,6 +3,8 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import {
   NavigationContainer,
   NavigationContainerRef,
+  DefaultTheme,
+  DarkTheme,
 } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -11,12 +13,13 @@ import { setNavigationCallback } from '../services/api/http';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import FloatingActionButtons from '../components/common/FloatingActionButtons';
+import AppBackground from '../components/common/AppBackground';
 import { getActiveRouteName } from './routeUtils';
 import { useVideoFeed } from '../context/VideoFeedContext';
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
   const [activeRoute, setActiveRoute] = useState<string | undefined>();
   const { isVideoFeedOpen } = useVideoFeed();
@@ -40,32 +43,39 @@ export default function AppNavigator() {
 
   if (isLoading) {
     return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: isDark ? palette.darkBg : palette.lightBg },
-        ]}
-      >
-        <ActivityIndicator size="large" color={palette.primary} />
-      </View>
+      <AppBackground>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={palette.primary} />
+        </View>
+      </AppBackground>
     );
   }
 
+  const navTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.hasBackgroundImage ? 'transparent' : colors.groupedBackground,
+      card: colors.secondaryGroupedBackground,
+      border: colors.separator,
+      primary: colors.tint,
+      text: colors.label,
+    },
+  };
+
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      onReady={syncActiveRoute}
-      onStateChange={syncActiveRoute}
-    >
-      {isAuthenticated ? (
-        <>
-          <MainNavigator />
-          <FloatingActionButtons activeRoute={activeRoute} hide={isVideoFeedOpen} />
-        </>
-      ) : (
-        <AuthNavigator />
-      )}
-    </NavigationContainer>
+    <AppBackground>
+      <NavigationContainer ref={navigationRef} theme={navTheme} onReady={syncActiveRoute} onStateChange={syncActiveRoute}>
+        {isAuthenticated ? (
+          <>
+            <MainNavigator />
+            <FloatingActionButtons activeRoute={activeRoute} hide={isVideoFeedOpen} />
+          </>
+        ) : (
+          <AuthNavigator />
+        )}
+      </NavigationContainer>
+    </AppBackground>
   );
 }
 

@@ -16,6 +16,7 @@ import {
 } from '../../types/evaluaciones.types';
 import { Socio } from '../../types/socios.types';
 import { useTheme } from '../../context/ThemeContext';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
@@ -312,7 +313,7 @@ export default function EvaluacionesScreen() {
   const [selectedSocio, setSelectedSocio] = useState<Socio | null>(null);
   const [refreshingHistorial, setRefreshingHistorial] = useState(false);
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
+  const bgColor = useScreenBackground();
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
   const tabBg = isDark ? palette.darkCard : '#E2E8F0';
 

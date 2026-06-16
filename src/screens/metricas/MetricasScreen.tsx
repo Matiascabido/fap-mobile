@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { metricasService } from '../../services/api/metricas.service';
 import { DashboardVista, MetricasDashboardResponse } from '../../types/metricas.types';
 import { useTheme } from '../../context/ThemeContext';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { useAuth } from '../../hooks/useAuth';
 import { palette } from '../../constants/colors';
 import { formatCurrency, getGreeting } from '../../utils/formatters';
@@ -29,7 +30,7 @@ export default function MetricasScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
+  const bgColor = useScreenBackground();
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
 

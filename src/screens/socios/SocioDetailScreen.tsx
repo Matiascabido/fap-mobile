@@ -15,6 +15,7 @@ import { SocioDetail } from '../../types/socios.types';
 import { SociosStackParamList } from '../../navigation/types';
 import { isValidUuid } from '../../utils/uuid';
 import { useTheme } from '../../context/ThemeContext';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
 import { formatDate } from '../../utils/formatters';
@@ -37,7 +38,7 @@ export default function SocioDetailScreen() {
   const [socio, setSocio] = useState<SocioDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
+  const bgColor = useScreenBackground();
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
 

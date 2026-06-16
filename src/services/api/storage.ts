@@ -9,6 +9,8 @@ const KEYS = {
   TOKEN: 'auth_token',
   USER_DATA: 'user_data',
   THEME: 'theme',
+  APPEARANCE_DARK_PRESET: 'appearance_dark_preset',
+  APPEARANCE_BG_MODE: 'appearance_bg_mode',
   REMEMBER_USER: 'remember_me_user',
   REMEMBER_PASS: 'remember_me_pass',
 };

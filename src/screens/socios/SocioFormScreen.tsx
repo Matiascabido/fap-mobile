@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -8,19 +8,21 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import Input from '../../components/common/Input';
 import DatePickerField from '../../components/common/DatePickerField';
-import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
+import GroupedSection from '../../components/common/GroupedSection';
 import { sociosService } from '../../services/api/socios.service';
 import { rolService, RolData } from '../../services/api/rol.service';
-import { useTheme } from '../../context/ThemeContext';
+import { useAppTheme } from '../../context/ThemeContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
+import { typography } from '../../theme/iosTheme';
 import {
   isSocioCreateFormReadyToSubmit,
   isSocioCreateStepValid,
@@ -30,6 +32,13 @@ import { HistoriaClinica } from '../../types/socios.types';
 
 const STEPS = ['Personales', 'Contacto', 'Salud', 'Intereses'] as const;
 type StepIndex = 1 | 2 | 3 | 4;
+
+const STEP_HINTS: Record<StepIndex, string> = {
+  1: 'Identificá al nuevo socio con DNI, nombre y datos básicos.',
+  2: 'Correo y celular son obligatorios para el acceso a la app.',
+  3: 'Marcá lo que aplique. Podés detallar cada ítem.',
+  4: 'Opcional — ayuda a personalizar el seguimiento.',
+};
 
 function rangoFechaNacimiento(): { min: Date; max: Date } {
   const max = new Date();
@@ -47,7 +56,7 @@ function capitalizeName(s: string): string {
 export default function SocioFormScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { isDark } = useTheme();
+  const { colors } = useAppTheme();
   const { isAdminUser } = usePermissions();
 
   const [currentStep, setCurrentStep] = useState<StepIndex>(1);
@@ -81,11 +90,9 @@ export default function SocioFormScreen() {
   const [areaInteres, setAreaInteres] = useState('');
   const [obs, setObs] = useState('');
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
-  const cardBg = isDark ? palette.darkCard : '#FFFFFF';
-  const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
-  const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
-  const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: 'Nuevo socio' });
+  }, [navigation]);
 
   useEffect(() => {
     Promise.all([
@@ -177,55 +184,102 @@ export default function SocioFormScreen() {
   };
 
   const { min: fechaNacMin, max: fechaNacMax } = rangoFechaNacimiento();
+  const stepIndex = currentStep - 1;
+  const progress = currentStep / STEPS.length;
 
   const renderStepIndicator = () => (
-    <View style={styles.stepsRow}>
-      {STEPS.map((label, index) => {
-        const stepNum = (index + 1) as StepIndex;
-        const done = currentStep > stepNum;
-        const active = currentStep === stepNum;
-        return (
-          <View key={label} style={styles.stepItem}>
-            <View
-              style={[
-                styles.stepDot,
-                {
-                  backgroundColor: done || active ? palette.primary : cardBg,
-                  borderColor: done || active ? palette.primary : borderColor,
-                },
-              ]}
-            >
-              {done ? (
-                <MaterialCommunityIcons name="check" size={14} color="#FFF" />
-              ) : (
-                <Text style={{ color: active ? '#FFF' : textSecondary, fontWeight: '700', fontSize: 12 }}>
-                  {stepNum}
-                </Text>
-              )}
+    <View
+      style={[
+        styles.stepHeader,
+        {
+          backgroundColor: colors.secondaryGroupedBackground,
+          borderBottomColor: colors.separator,
+        },
+      ]}
+    >
+      <View style={styles.progressRow}>
+        <Text style={[styles.progressLabel, { color: colors.secondaryLabel }]}>
+          Paso {currentStep} de {STEPS.length}
+        </Text>
+        <Text style={[styles.progressLabel, { color: colors.tint, fontWeight: '700' }]}>
+          {STEPS[stepIndex]}
+        </Text>
+      </View>
+      <View style={[styles.progressTrack, { backgroundColor: colors.fill }]}>
+        <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: colors.tint }]} />
+      </View>
+
+      <View style={styles.stepsRow}>
+        {STEPS.map((label, index) => {
+          const stepNum = (index + 1) as StepIndex;
+          const done = currentStep > stepNum;
+          const active = currentStep === stepNum;
+          return (
+            <View key={label} style={styles.stepItem}>
+              <View
+                style={[
+                  styles.stepDot,
+                  {
+                    backgroundColor: done || active ? colors.tint : colors.tertiaryGroupedBackground,
+                    borderColor: done || active ? colors.tint : colors.separator,
+                  },
+                ]}
+              >
+                {done ? (
+                  <Ionicons name="checkmark" size={14} color="#FFF" />
+                ) : (
+                  <Text
+                    style={[
+                      styles.stepNum,
+                      { color: active ? '#FFF' : colors.secondaryLabel },
+                    ]}
+                  >
+                    {stepNum}
+                  </Text>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  {
+                    color: active ? colors.tint : colors.secondaryLabel,
+                    fontWeight: active ? '700' : '500',
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
+              {index < STEPS.length - 1 ? (
+                <View
+                  style={[
+                    styles.stepLine,
+                    { backgroundColor: done ? colors.tint : colors.separator },
+                  ]}
+                />
+              ) : null}
             </View>
-            <Text
-              style={[
-                styles.stepLabel,
-                { color: active ? palette.primary : textSecondary, fontWeight: active ? '700' : '500' },
-              ]}
-              numberOfLines={1}
-            >
-              {label}
-            </Text>
-          </View>
-        );
-      })}
+          );
+        })}
+      </View>
+
+      <Text style={[styles.stepHint, { color: colors.secondaryLabel }]}>
+        {STEP_HINTS[currentStep]}
+      </Text>
     </View>
   );
 
-  const renderSelectChip = (
+  const renderChoiceChips = (
     label: string,
     value: string,
     options: { value: string; label: string }[],
-    onChange: (v: string) => void
+    onChange: (v: string) => void,
+    required?: boolean
   ) => (
-    <View style={styles.fieldBlock}>
-      <Text style={[styles.fieldLabel, { color: textSecondary }]}>{label}</Text>
+    <View style={styles.choiceBlock}>
+      <Text style={[styles.choiceLabel, typography.sectionHeader, { color: colors.secondaryLabel }]}>
+        {label}
+      </Text>
       <View style={styles.chipsRow}>
         {options.map((opt) => {
           const selected = value === opt.value;
@@ -233,49 +287,63 @@ export default function SocioFormScreen() {
             <TouchableOpacity
               key={opt.value}
               style={[
-                styles.chip,
+                styles.choiceChip,
                 {
-                  borderColor: selected ? palette.primary : borderColor,
-                  backgroundColor: selected ? `${palette.primary}15` : cardBg,
+                  backgroundColor: selected ? colors.tint : colors.tertiaryGroupedBackground,
+                  borderColor: selected ? colors.tint : colors.separator,
                 },
               ]}
               onPress={() => onChange(opt.value)}
             >
-              <Text style={{ color: selected ? palette.primary : textPrimary, fontWeight: '600', fontSize: 13 }}>
+              <Text
+                style={[
+                  styles.choiceChipText,
+                  { color: selected ? '#FFFFFF' : colors.label },
+                ]}
+              >
                 {opt.label}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
-      {touched && !value ? <Text style={styles.fieldError}>Seleccioná una opción</Text> : null}
+      {touched && required && !value ? (
+        <Text style={styles.fieldError}>Seleccioná una opción</Text>
+      ) : null}
     </View>
   );
 
   const renderHcToggle = (
     key: keyof HistoriaClinica,
     label: string,
-    descKey?: keyof HistoriaClinica
+    descKey?: keyof HistoriaClinica,
+    isLast?: boolean
   ) => (
-    <View style={[styles.hcBox, { borderColor, backgroundColor: hc[key] ? `${palette.primary}08` : cardBg }]}>
+    <View>
       <TouchableOpacity
-        style={styles.hcHeader}
+        style={[
+          styles.listRow,
+          !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
+          hc[key] && { backgroundColor: `${colors.tint}08` },
+        ]}
         onPress={() => setHc((prev) => ({ ...prev, [key]: !prev[key] }))}
       >
-        <MaterialCommunityIcons
-          name={hc[key] ? 'checkbox-marked' : 'checkbox-blank-outline'}
+        <Ionicons
+          name={hc[key] ? 'checkbox' : 'square-outline'}
           size={22}
-          color={hc[key] ? palette.primary : textSecondary}
+          color={hc[key] ? colors.tint : colors.tertiaryLabel}
         />
-        <Text style={[styles.hcLabel, { color: textPrimary }]}>{label}</Text>
+        <Text style={[styles.listRowText, typography.body, { color: colors.label }]}>{label}</Text>
       </TouchableOpacity>
       {descKey && hc[key] ? (
-        <Input
-          label="Detalle"
-          value={(hc[descKey] as string) ?? ''}
-          onChangeText={(t) => setHc((prev) => ({ ...prev, [descKey]: t }))}
-          multiline
-        />
+        <View style={[styles.hcDetail, { borderBottomColor: colors.separator }]}>
+          <Input
+            label="Detalle"
+            value={(hc[descKey] as string) ?? ''}
+            onChangeText={(t) => setHc((prev) => ({ ...prev, [descKey]: t }))}
+            multiline
+          />
+        </View>
       ) : null}
     </View>
   );
@@ -286,176 +354,274 @@ export default function SocioFormScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: bgColor }]}
+      style={[styles.container, { backgroundColor: colors.groupedBackground }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={[styles.topBar, { paddingTop: insets.top + 8, borderBottomColor: borderColor }]}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: textPrimary }]}>Nuevo usuario</Text>
-          <Text style={[styles.subtitle, { color: textSecondary }]}>Alta de socio o entrenado</Text>
-        </View>
-      </View>
-
       {renderStepIndicator()}
 
-      <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.form}
+        keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
         {currentStep === 1 && (
-          <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={[styles.sectionTitle, { color: palette.primary }]}>Datos personales</Text>
-            <Input
-              label="DNI *"
-              value={dni}
-              onChangeText={(t) => setDni(t.replace(/\D/g, '').slice(0, 8))}
-              icon="card-account-details"
-              keyboardType="numeric"
-            />
-            {touched && dni.length > 0 && dni.length < 8 ? (
-              <Text style={styles.fieldError}>Mínimo 8 dígitos</Text>
-            ) : null}
+          <>
+            <GroupedSection title="Identificación">
+              <View style={styles.sectionBody}>
+                <Input
+                  label="DNI *"
+                  value={dni}
+                  onChangeText={(t) => setDni(t.replace(/\D/g, '').slice(0, 8))}
+                  icon="card-account-details"
+                  keyboardType="numeric"
+                />
+                {touched && dni.length > 0 && dni.length < 8 ? (
+                  <Text style={styles.fieldError}>Mínimo 8 dígitos</Text>
+                ) : null}
+              </View>
+            </GroupedSection>
 
             {isAdminUser ? (
-              <View style={styles.fieldBlock}>
-                <Text style={[styles.fieldLabel, { color: textSecondary }]}>ROL *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipsRow}>
-                    {roles.map((r) => {
-                      const selected = idRol === r.id_rol;
-                      return (
-                        <TouchableOpacity
-                          key={r.id_rol}
-                          style={[
-                            styles.chip,
-                            {
-                              borderColor: selected ? palette.primary : borderColor,
-                              backgroundColor: selected ? `${palette.primary}15` : cardBg,
-                            },
-                          ]}
-                          onPress={() => setIdRol(r.id_rol)}
-                        >
-                          <Text style={{ color: selected ? palette.primary : textPrimary, fontWeight: '600' }}>
-                            {r.nombre_rol}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
-              </View>
+              <GroupedSection title="Rol *">
+                <View style={styles.roleList}>
+                  {roles.map((r, index) => {
+                    const selected = idRol === r.id_rol;
+                    return (
+                      <TouchableOpacity
+                        key={r.id_rol}
+                        style={[
+                          styles.listRow,
+                          index < roles.length - 1 && {
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                            borderBottomColor: colors.separator,
+                          },
+                          selected && { backgroundColor: `${colors.tint}10` },
+                        ]}
+                        onPress={() => setIdRol(r.id_rol)}
+                      >
+                        <Ionicons
+                          name={selected ? 'radio-button-on' : 'radio-button-off'}
+                          size={20}
+                          color={selected ? colors.tint : colors.tertiaryLabel}
+                        />
+                        <Text style={[styles.listRowText, typography.body, { color: colors.label }]}>
+                          {r.nombre_rol}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </GroupedSection>
             ) : (
-              <Input label="Rol" value="Socio / Entrenado" editable={false} icon="shield-account" />
+              <GroupedSection title="Rol">
+                <View style={styles.sectionBody}>
+                  <Input label="Rol asignado" value="Socio / Entrenado" editable={false} icon="shield-account" />
+                </View>
+              </GroupedSection>
             )}
 
-            <Input label="Nombre *" value={nombre} onChangeText={setNombre} icon="account" />
-            <Input label="Apellido *" value={apellido} onChangeText={setApellido} icon="account" />
-            {renderSelectChip('Género *', genero, [
-              { value: 'M', label: 'Masculino' },
-              { value: 'F', label: 'Femenino' },
-              { value: 'O', label: 'Otro' },
-            ], setGenero)}
-            <DatePickerField
-              label="Fecha de nacimiento"
-              value={fechaNacimiento}
-              onChange={setFechaNacimiento}
-              variant="form"
-              clearable
-              maximumDate={fechaNacMax}
-              minimumDate={fechaNacMin}
-              placeholder="Opcional"
-            />
-          </View>
+            <GroupedSection title="Datos personales">
+              <View style={styles.sectionBody}>
+                <Input label="Nombre *" value={nombre} onChangeText={setNombre} icon="account" />
+                <Input label="Apellido *" value={apellido} onChangeText={setApellido} icon="account" />
+                {renderChoiceChips(
+                  'Género *',
+                  genero,
+                  [
+                    { value: 'M', label: 'Masculino' },
+                    { value: 'F', label: 'Femenino' },
+                    { value: 'O', label: 'Otro' },
+                  ],
+                  setGenero,
+                  true
+                )}
+                <DatePickerField
+                  label="Fecha de nacimiento"
+                  value={fechaNacimiento}
+                  onChange={setFechaNacimiento}
+                  variant="form"
+                  clearable
+                  maximumDate={fechaNacMax}
+                  minimumDate={fechaNacMin}
+                  placeholder="Opcional"
+                />
+              </View>
+            </GroupedSection>
+          </>
         )}
 
         {currentStep === 2 && (
-          <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={[styles.sectionTitle, { color: palette.primary }]}>Contacto y domicilio</Text>
-            <Input
-              label="Correo *"
-              value={mail}
-              onChangeText={setMail}
-              icon="email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <Input label="Celular / WhatsApp *" value={celular} onChangeText={setCelular} icon="phone" keyboardType="phone-pad" />
-            <Input label="Calle" value={calle} onChangeText={setCalle} icon="home" />
-            <View style={styles.rowInputs}>
-              <View style={{ flex: 1 }}>
-                <Input label="Número" value={numero} onChangeText={setNumero} keyboardType="numeric" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Input label="Piso" value={piso} onChangeText={setPiso} />
-              </View>
-            </View>
-            <Input label="Depto / Of." value={depto} onChangeText={setDepto} />
-
-            <TouchableOpacity
-              style={[styles.hcBox, { borderColor, backgroundColor: tieneOS ? `${palette.primary}08` : cardBg }]}
-              onPress={() => setTieneOS((v) => !v)}
+          <>
+            <GroupedSection
+              title="Contacto"
+              footer="El correo debe ser @gmail.com, @hotmail.com, @yahoo.com o @icloud.com"
             >
-              <View style={styles.hcHeader}>
-                <MaterialCommunityIcons
-                  name={tieneOS ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                  size={22}
-                  color={tieneOS ? palette.primary : textSecondary}
+              <View style={styles.sectionBody}>
+                <Input
+                  label="Correo *"
+                  value={mail}
+                  onChangeText={setMail}
+                  icon="email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
-                <Text style={[styles.hcLabel, { color: textPrimary }]}>¿Posee obra social?</Text>
+                <Input
+                  label="Celular / WhatsApp *"
+                  value={celular}
+                  onChangeText={setCelular}
+                  icon="phone"
+                  keyboardType="phone-pad"
+                />
               </View>
-            </TouchableOpacity>
-            {tieneOS ? (
-              <Input label="Obra social / prepaga" value={obraSocial} onChangeText={setObraSocial} icon="hospital-box" />
-            ) : null}
-          </View>
+            </GroupedSection>
+
+            <GroupedSection title="Domicilio">
+              <View style={styles.sectionBody}>
+                <Input label="Calle" value={calle} onChangeText={setCalle} icon="home" />
+                <View style={styles.rowInputs}>
+                  <View style={{ flex: 1 }}>
+                    <Input label="Número" value={numero} onChangeText={setNumero} keyboardType="numeric" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Input label="Piso" value={piso} onChangeText={setPiso} />
+                  </View>
+                </View>
+                <Input label="Depto / Of." value={depto} onChangeText={setDepto} />
+              </View>
+            </GroupedSection>
+
+            <GroupedSection title="Obra social">
+              <TouchableOpacity
+                style={[
+                  styles.listRow,
+                  tieneOS && { backgroundColor: `${colors.tint}08` },
+                ]}
+                onPress={() => setTieneOS((v) => !v)}
+              >
+                <Ionicons
+                  name={tieneOS ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={tieneOS ? colors.tint : colors.tertiaryLabel}
+                />
+                <Text style={[styles.listRowText, typography.body, { color: colors.label }]}>
+                  ¿Posee obra social?
+                </Text>
+              </TouchableOpacity>
+              {tieneOS ? (
+                <View style={[styles.sectionBody, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}>
+                  <Input
+                    label="Obra social / prepaga"
+                    value={obraSocial}
+                    onChangeText={setObraSocial}
+                    icon="hospital-box"
+                  />
+                </View>
+              ) : null}
+            </GroupedSection>
+          </>
         )}
 
         {currentStep === 3 && (
-          <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={[styles.sectionTitle, { color: palette.primary }]}>Historia clínica</Text>
+          <GroupedSection
+            title="Historia clínica"
+            footer="Esta información ayuda al profesional a adaptar el plan de entrenamiento."
+          >
             {renderHcToggle('antecedentes', 'Antecedentes de lesiones', 'antecedentes_desc')}
             {renderHcToggle('cirugias', 'Cirugías previas', 'cirugias_desc')}
             {renderHcToggle('tratamiento', 'Tratamiento médico actual', 'tratamiento_desc')}
-            {renderHcToggle('patologiaBase', 'Patología de base', 'patologiaBase_desc')}
-          </View>
+            {renderHcToggle('patologiaBase', 'Patología de base', 'patologiaBase_desc', true)}
+          </GroupedSection>
         )}
 
         {currentStep === 4 && (
-          <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={[styles.sectionTitle, { color: palette.primary }]}>Intereses</Text>
-            {renderSelectChip('Objetivo principal', objetivo, [
-              { value: 'Salud', label: 'Salud' },
-              { value: 'Estética', label: 'Estética' },
-              { value: 'Rendimiento', label: 'Rendimiento' },
-            ], setObjetivo)}
-            {renderSelectChip('Área de interés', areaInteres, [
-              { value: 'Kinesiologia', label: 'Kinesiología' },
-              { value: 'Readaptacion', label: 'Readaptación' },
-              { value: 'Entrenamiento', label: 'Entrenamiento' },
-            ], setAreaInteres)}
-            <Input
-              label="Objetivos y expectativas"
-              value={obs}
-              onChangeText={setObs}
-              multiline
-              icon="note-text"
-            />
-          </View>
+          <>
+            <GroupedSection title="Objetivos">
+              <View style={styles.sectionBody}>
+                {renderChoiceChips(
+                  'Objetivo principal',
+                  objetivo,
+                  [
+                    { value: 'Salud', label: 'Salud' },
+                    { value: 'Estética', label: 'Estética' },
+                    { value: 'Rendimiento', label: 'Rendimiento' },
+                  ],
+                  setObjetivo
+                )}
+                {renderChoiceChips(
+                  'Área de interés',
+                  areaInteres,
+                  [
+                    { value: 'Kinesiologia', label: 'Kinesiología' },
+                    { value: 'Readaptacion', label: 'Readaptación' },
+                    { value: 'Entrenamiento', label: 'Entrenamiento' },
+                  ],
+                  setAreaInteres
+                )}
+              </View>
+            </GroupedSection>
+
+            <GroupedSection title="Expectativas">
+              <View style={styles.sectionBody}>
+                <Input
+                  label="Objetivos y expectativas"
+                  value={obs}
+                  onChangeText={setObs}
+                  multiline
+                  icon="note-text"
+                />
+              </View>
+            </GroupedSection>
+          </>
         )}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: borderColor, paddingBottom: insets.bottom + 12 }]}>
-        <TouchableOpacity style={styles.secondaryBtn} onPress={handleBack}>
-          <Text style={[styles.secondaryBtnText, { color: textSecondary }]}>
-            {currentStep === 1 ? 'Cancelar' : 'Anterior'}
-          </Text>
+      <View
+        style={[
+          styles.footer,
+          {
+            backgroundColor: colors.secondaryGroupedBackground,
+            borderTopColor: colors.separator,
+            paddingBottom: insets.bottom + 12,
+          },
+        ]}
+      >
+        <TouchableOpacity style={styles.footerBack} onPress={handleBack} disabled={loading}>
+          {currentStep > 1 ? (
+            <>
+              <Ionicons name="chevron-back" size={18} color={colors.secondaryLabel} />
+              <Text style={[styles.footerBackText, { color: colors.secondaryLabel }]}>Anterior</Text>
+            </>
+          ) : (
+            <Text style={[styles.footerBackText, { color: colors.secondaryLabel }]}>Cancelar</Text>
+          )}
         </TouchableOpacity>
+
         {currentStep < 4 ? (
-          <Button title="Siguiente" onPress={handleNext} />
+          <TouchableOpacity
+            style={[styles.footerPrimary, { backgroundColor: colors.tint }]}
+            onPress={handleNext}
+          >
+            <Text style={styles.footerPrimaryText}>Siguiente</Text>
+            <Ionicons name="chevron-forward" size={18} color="#FFF" />
+          </TouchableOpacity>
         ) : (
-          <Button title="Finalizar" onPress={handleSubmit} loading={loading} />
+          <TouchableOpacity
+            style={[styles.footerPrimary, { backgroundColor: colors.tint }, loading && styles.btnDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={18} color="#FFF" />
+                <Text style={styles.footerPrimaryText}>Finalizar</Text>
+              </>
+            )}
+          </TouchableOpacity>
         )}
       </View>
     </KeyboardAvoidingView>
@@ -464,24 +630,32 @@ export default function SocioFormScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  stepHeader: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingTop: 12,
+    paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 8,
   },
-  backButton: { padding: 4 },
-  title: { fontSize: 18, fontWeight: '800' },
-  subtitle: { fontSize: 12, marginTop: 2 },
+  progressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: { fontSize: 13, fontWeight: '600' },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  progressFill: { height: '100%', borderRadius: 2 },
   stepsRow: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
     gap: 4,
+    marginBottom: 10,
   },
-  stepItem: { flex: 1, alignItems: 'center' },
+  stepItem: { flex: 1, alignItems: 'center', position: 'relative' },
   stepDot: {
     width: 28,
     height: 28,
@@ -491,47 +665,50 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
+  stepNum: { fontSize: 12, fontWeight: '700' },
   stepLabel: { fontSize: 10, textAlign: 'center' },
+  stepLine: {
+    position: 'absolute',
+    top: 14,
+    left: '58%',
+    width: '84%',
+    height: 2,
+    zIndex: -1,
+  },
+  stepHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
   form: { padding: 16, paddingBottom: 24 },
-  sectionCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: palette.primary,
-    paddingLeft: 10,
-  },
-  fieldBlock: { marginBottom: 12 },
-  fieldLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
+  sectionBody: { padding: 12, gap: 4 },
+  choiceBlock: { marginBottom: 8 },
+  choiceLabel: { marginBottom: 8, marginLeft: 4 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    borderWidth: 1,
-    borderRadius: 999,
+  choiceChip: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
-  fieldError: { color: palette.error, fontSize: 12, marginBottom: 8 },
-  hcBox: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
+  choiceChipText: { fontSize: 14, fontWeight: '600' },
+  roleList: {},
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  hcHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  hcLabel: { fontSize: 14, fontWeight: '600', flex: 1 },
+  listRowText: { flex: 1 },
+  hcDetail: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   rowInputs: { flexDirection: 'row', gap: 10 },
+  fieldError: { color: palette.error, fontSize: 12, marginBottom: 4, marginLeft: 4 },
   errorText: { color: palette.error, fontSize: 13, marginTop: 8, textAlign: 'center' },
   footer: {
     flexDirection: 'row',
@@ -541,6 +718,25 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  secondaryBtn: { paddingVertical: 14, paddingHorizontal: 8 },
-  secondaryBtnText: { fontSize: 15, fontWeight: '600' },
+  footerBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    minWidth: 90,
+  },
+  footerBackText: { fontSize: 16, fontWeight: '600' },
+  footerPrimary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 14,
+    minHeight: 48,
+  },
+  footerPrimaryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  btnDisabled: { opacity: 0.6 },
 });

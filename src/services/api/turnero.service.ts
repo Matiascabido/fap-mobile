@@ -1,5 +1,11 @@
 import { apiFetch, ApiFetchContext, HttpRequestError } from './http';
 import { TurnoResponse, ListTurnosParams } from '../../types/turnero.types';
+import {
+  marcarInscriptoLocal,
+  mensajeEsDuplicadoInscripcion,
+  mensajeEsNoEstaInscripto,
+  persistirInscripcionLocal,
+} from '../../utils/turnoInscripcion';
 
 function buildListQuery(
   page = 1,
@@ -91,6 +97,37 @@ export const turneroService = {
       { method: 'DELETE' },
       ctx
     );
+  },
+
+  async toggleInscripcion(
+    idTurno: string,
+    yaInscripto: boolean,
+    userId?: string,
+    ctx?: ApiFetchContext
+  ): Promise<TurnoResponse> {
+    const requestCtx: ApiFetchContext = { suppressGlobalAlert: true, ...ctx };
+
+    try {
+      if (yaInscripto) {
+        await this.desinscribir(idTurno, requestCtx);
+        marcarInscriptoLocal(idTurno, false);
+      } else {
+        await this.inscribir(idTurno, requestCtx);
+        marcarInscriptoLocal(idTurno, true);
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (!yaInscripto && mensajeEsDuplicadoInscripcion(msg)) {
+        marcarInscriptoLocal(idTurno, true);
+      } else if (yaInscripto && mensajeEsNoEstaInscripto(msg)) {
+        marcarInscriptoLocal(idTurno, false);
+      } else {
+        throw error;
+      }
+    }
+
+    if (userId) await persistirInscripcionLocal(userId);
+    return this.getById(idTurno);
   },
 
   async delete(idTurno: string): Promise<void> {

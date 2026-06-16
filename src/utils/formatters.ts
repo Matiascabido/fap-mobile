@@ -1,13 +1,23 @@
 import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { parseFechaLocal } from './fechasAlertas';
 
 /**
  * Formatea una fecha ISO a formato legible en español
  */
 export function formatDate(dateInput: string | Date, pattern = 'dd/MM/yyyy'): string {
   try {
-    const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
-    if (!isValid(date)) return '-';
+    let date: Date | null = null;
+    if (typeof dateInput === 'string') {
+      date = parseFechaLocal(dateInput);
+      if (!date) {
+        const iso = parseISO(dateInput);
+        date = isValid(iso) ? iso : null;
+      }
+    } else {
+      date = dateInput;
+    }
+    if (!date || !isValid(date)) return '-';
     return format(date, pattern, { locale: es });
   } catch {
     return '-';

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { palette } from '../../constants/colors';
 
 interface LoaderProps {
@@ -14,17 +15,13 @@ export default function Loader({
   fullscreen = false,
   message,
 }: LoaderProps) {
-  const { isDark } = useTheme();
-  const textColor = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
+  const { colors } = useAppTheme();
+  const screenBg = useScreenBackground();
+  const textColor = colors.secondaryLabel;
 
   if (fullscreen) {
     return (
-      <View
-        style={[
-          styles.fullscreen,
-          { backgroundColor: isDark ? palette.darkBg : palette.lightBg },
-        ]}
-      >
+      <View style={[styles.fullscreen, { backgroundColor: screenBg }]}>
         <ActivityIndicator size={size} color={palette.primary} />
         {message && <Text style={[styles.message, { color: textColor }]}>{message}</Text>}
       </View>

@@ -88,7 +88,11 @@ export function puedeGestionarTurnosAdministracion(
  * Puede inscribirse a turnos (NO staff): SOCIO, ENTRENADO, ALUMNO
  */
 export function puedeInscribirseATurnos(user: RolUser | null | undefined): boolean {
-  return esRolSocioClub(user) || esRolEntrenado(user);
+  if (esRolProfesional(user) || esRolGodOAdmin(user)) return false;
+  if (esRolEntrnadoOff(user)) return false;
+  const rol = getRolNombre(user);
+  if (!rol) return false;
+  return rol.includes('SOCIO') || rol.includes('ENTRENADO') || rol.includes('ALUMNO');
 }
 
 /**

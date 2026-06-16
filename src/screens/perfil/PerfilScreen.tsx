@@ -26,7 +26,7 @@ import {
 } from '../../services/api/pagosCobranzas.service';
 import { getRolLabel } from '../../utils/sessionRole';
 
-type ThemeOption = 'light' | 'dark' | 'auto';
+import AppearanceSettings from '../../components/settings/AppearanceSettings';
 
 const MEDIO_PAGO_LABELS: Record<string, string> = {
   TRANSFERENCIA: 'Transferencia',
@@ -38,11 +38,11 @@ const MEDIO_PAGO_LABELS: Record<string, string> = {
 
 export default function PerfilScreen() {
   const { user, logout } = useAuth();
-  const { theme, isDark, setTheme } = useTheme();
+  const { isDark, colors } = useTheme();
   const { getPermissionCodes, isProfesionalUser, isAdminUser, isSocioUser, hasPermission } =
     usePermissions();
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
+  const bgColor = colors.hasBackgroundImage ? 'transparent' : colors.groupedBackground;
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
   const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
@@ -100,15 +100,6 @@ export default function PerfilScreen() {
     ]);
   };
 
-  const themeOptions: {
-    key: ThemeOption;
-    label: string;
-    icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  }[] = [
-    { key: 'light', label: 'Claro', icon: 'weather-sunny' },
-    { key: 'dark', label: 'Oscuro', icon: 'weather-night' },
-    { key: 'auto', label: 'Auto', icon: 'theme-light-dark' },
-  ];
 
   return (
     <ScrollView
@@ -248,37 +239,11 @@ export default function PerfilScreen() {
 
       {/* Apariencia */}
       <Card style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: textPrimary }]}>Apariencia</Text>
-        <Text style={[styles.sectionSubtitle, { color: textSecondary }]}>
-          Elegí el tema de la aplicación
-        </Text>
-        <View style={styles.themeOptions}>
-          {themeOptions.map((option) => {
-            const isSelected = theme === option.key;
-            return (
-              <TouchableOpacity
-                key={option.key}
-                style={[
-                  styles.themeOption,
-                  {
-                    backgroundColor: isSelected ? palette.primary : 'transparent',
-                    borderColor: isSelected ? palette.primary : borderColor,
-                  },
-                ]}
-                onPress={() => setTheme(option.key)}
-              >
-                <MaterialCommunityIcons
-                  name={option.icon}
-                  size={22}
-                  color={isSelected ? '#FFFFFF' : textSecondary}
-                />
-                <Text style={[styles.themeOptionText, { color: isSelected ? '#FFFFFF' : textPrimary }]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <AppearanceSettings
+          textPrimary={textPrimary}
+          textSecondary={textSecondary}
+          borderColor={borderColor}
+        />
       </Card>
 
       {/* Permisos */}

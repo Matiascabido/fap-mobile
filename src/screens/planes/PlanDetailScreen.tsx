@@ -375,7 +375,7 @@ export default function PlanDetailScreen() {
     <View style={[styles.container, { backgroundColor: colors.groupedBackground }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} contentInsetAdjustmentBehavior="automatic">
         <LinearGradient
-          colors={['#1e293b', '#1e293b', heroAccent]}
+          colors={['#243447', '#1B2838', heroAccent]}
           locations={[0, 0.55, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}

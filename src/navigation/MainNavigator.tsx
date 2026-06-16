@@ -40,12 +40,13 @@ const PlanesStack = createNativeStackNavigator<PlanesStackParamList>();
 const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 
 function stackScreenOptions(colors: AppThemeTokens) {
+  const screenBg = colors.hasBackgroundImage ? 'transparent' : colors.groupedBackground;
   return {
     headerStyle: { backgroundColor: colors.secondaryGroupedBackground },
     headerTintColor: colors.tint,
     headerTitleStyle: { fontWeight: '600' as const },
     headerShadowVisible: false,
-    contentStyle: { backgroundColor: colors.groupedBackground },
+    contentStyle: { backgroundColor: screenBg },
     ...(Platform.OS === 'ios' ? { headerBlurEffect: 'regular' as const } : {}),
   };
 }
@@ -86,7 +87,7 @@ function SociosNavigator() {
         options={{ title: 'Socios' }}
       />
       <SociosStack.Screen name="SocioDetail" component={SocioDetailScreen} options={{ title: 'Socio' }} />
-      <SociosStack.Screen name="SocioForm" component={SocioFormScreen} options={{ title: 'Socio' }} />
+      <SociosStack.Screen name="SocioForm" component={SocioFormScreen} options={{ title: 'Nuevo socio' }} />
     </SociosStack.Navigator>
   );
 }

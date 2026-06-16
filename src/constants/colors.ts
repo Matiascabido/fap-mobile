@@ -27,9 +27,9 @@ export const palette = {
   lightTextSecondary: '#64748B',
   lightBorder: '#E2E8F0',
   
-  // Dark mode
-  darkBg: '#0F172A',
-  darkCard: '#1E293B',
+  // Dark mode — azul mate (ya no negro puro)
+  darkBg: '#1B2838',
+  darkCard: '#243447',
   darkTextPrimary: '#F1F5F9',
   darkTextSecondary: '#94A3B8',
   darkBorder: '#334155',

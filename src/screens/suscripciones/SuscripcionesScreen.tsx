@@ -19,6 +19,7 @@ import {
 } from '../../services/api/suscripciones.service';
 import { SuscripcionData, SuscripcionEstado } from '../../types/suscripciones.types';
 import { useTheme } from '../../context/ThemeContext';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { useAuth } from '../../context/AuthContext';
 import { getUserId } from '../../utils/userId';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -59,7 +60,7 @@ export default function SuscripcionesScreen() {
   const debouncedSearch = useDebounce(search, 400);
   const canCreate = hasPermission('suscripciones:create');
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
+  const bgColor = useScreenBackground();
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;

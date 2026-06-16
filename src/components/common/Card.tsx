@@ -5,8 +5,7 @@ import {
   StyleSheet,
   ViewStyle,
 } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import { palette } from '../../constants/colors';
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface CardProps {
   children: ReactNode;
@@ -17,14 +16,14 @@ interface CardProps {
 }
 
 export default function Card({ children, onPress, style, padding = 16, variant = 'default' }: CardProps) {
-  const { isDark } = useTheme();
+  const { colors } = useAppTheme();
   const isGrouped = variant === 'grouped';
 
   const cardStyle = [
     isGrouped ? styles.cardGrouped : styles.card,
     {
-      backgroundColor: isDark ? palette.darkCard : palette.lightCard,
-      borderColor: isDark ? palette.darkBorder : palette.lightBorder,
+      backgroundColor: colors.secondaryGroupedBackground,
+      borderColor: colors.separator,
       padding,
     },
     style,

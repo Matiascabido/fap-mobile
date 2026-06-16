@@ -11,6 +11,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAppTheme } from '../../context/ThemeContext';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { palette } from '../../constants/colors';
 import { getGreeting, formatLongDate, capitalize } from '../../utils/formatters';
 import { getRolLabel } from '../../utils/sessionRole';
@@ -32,7 +33,7 @@ export default function HomeScreen() {
   } = usePermissions();
   const { isDark, colors } = useAppTheme();
 
-  const bgColor = colors.groupedBackground;
+  const bgColor = useScreenBackground();
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;

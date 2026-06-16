@@ -1,21 +1,21 @@
 /**
- * Colores para los bloques de plan de entrenamiento.
- * Replica planBlockColors.ts del frontend web.
+ * Colores mate para bloques y planes de entrenamiento.
  */
 
-const FALLBACK_BLOCK_COLOR = '#94a3b8';
+const FALLBACK_BLOCK_COLOR = '#64748B';
 
+/** Paleta mate fija (sin saturación chillona) */
 const BLOCK_COLORS = [
-  { bg: '#dc2626', text: '#FFFFFF', light: '#fee2e2' },
-  { bg: '#2563eb', text: '#FFFFFF', light: '#dbeafe' },
-  { bg: '#16a34a', text: '#FFFFFF', light: '#dcfce7' },
-  { bg: '#d97706', text: '#FFFFFF', light: '#fef3c7' },
-  { bg: '#7c3aed', text: '#FFFFFF', light: '#ede9fe' },
-  { bg: '#0891b2', text: '#FFFFFF', light: '#cffafe' },
-  { bg: '#db2777', text: '#FFFFFF', light: '#fce7f3' },
-  { bg: '#65a30d', text: '#FFFFFF', light: '#ecfccb' },
-  { bg: '#1d4ed8', text: '#FFFFFF', light: '#dbeafe' },
-  { bg: '#b45309', text: '#FFFFFF', light: '#fef3c7' },
+  { bg: '#5C6B7A', text: '#F1F5F9', light: '#475569' },
+  { bg: '#4A6FA5', text: '#F1F5F9', light: '#3D5A80' },
+  { bg: '#5B7B6A', text: '#F1F5F9', light: '#456B55' },
+  { bg: '#8B7355', text: '#F1F5F9', light: '#6B5844' },
+  { bg: '#6B5B7A', text: '#F1F5F9', light: '#554A62' },
+  { bg: '#4A7A7E', text: '#F1F5F9', light: '#3D6266' },
+  { bg: '#7A5B6B', text: '#F1F5F9', light: '#624958' },
+  { bg: '#6B7A4A', text: '#F1F5F9', light: '#556240' },
+  { bg: '#556B8B', text: '#F1F5F9', light: '#44566E' },
+  { bg: '#7A6B55', text: '#F1F5F9', light: '#625644' },
 ];
 
 export interface BlockColor {
@@ -41,25 +41,49 @@ function colorFromBloqueItem(raw: unknown): string | null {
   return parseColor(nested?.color ?? o.color);
 }
 
-/** Color explícito del bloque o gris de respaldo. */
-export function resolveBlockColor(bloque: { color?: string | null } | null | undefined): string {
-  return colorFromBloqueItem(bloque) ?? FALLBACK_BLOCK_COLOR;
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const clean = hex.replace('#', '');
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
+  const n = parseInt(clean, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
-/**
- * Colores en el mismo orden que los bloques del plan (para franja lateral / gradiente).
- */
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((x) => Math.max(0, Math.min(255, x)).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Mezcla un color del API con slate para obtener un tono mate consistente */
+export function toMatteAccent(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return FALLBACK_BLOCK_COLOR;
+  const slate = { r: 100, g: 116, b: 139 };
+  const mix = 0.52;
+  return rgbToHex(
+    Math.round(rgb.r * mix + slate.r * (1 - mix)),
+    Math.round(rgb.g * mix + slate.g * (1 - mix)),
+    Math.round(rgb.b * mix + slate.b * (1 - mix))
+  );
+}
+
+export function resolveBlockColor(
+  bloque: { color?: string | null } | null | undefined,
+  index = 0
+): string {
+  const fromApi = colorFromBloqueItem(bloque);
+  if (fromApi) return toMatteAccent(fromApi);
+  return BLOCK_COLORS[index % BLOCK_COLORS.length]!.bg;
+}
+
 export function blockColorsFromPlan(bloques: unknown[]): string[] {
   const out: string[] = [];
-  for (const b of bloques) {
-    const p = colorFromBloqueItem(b);
-    if (p) out.push(p);
-  }
+  bloques.forEach((b, i) => {
+    out.push(resolveBlockColor(b as { color?: string | null }, i));
+  });
   return out.length > 0 ? out : [FALLBACK_BLOCK_COLOR];
 }
 
 export function getPlanBlockColor(index: number): BlockColor {
-  return BLOCK_COLORS[index % BLOCK_COLORS.length];
+  return BLOCK_COLORS[index % BLOCK_COLORS.length]!;
 }
 
 export function getAllBlockColors(): BlockColor[] {

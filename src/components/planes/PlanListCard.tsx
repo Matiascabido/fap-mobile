@@ -1,10 +1,9 @@
 import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { PlanWithRelations } from '../../types/planes.types';
 import { useAppTheme } from '../../context/ThemeContext';
-import { blockColorsFromPlan } from '../../utils/planBlockColors';
+import { blockColorsFromPlan, toMatteAccent } from '../../utils/planBlockColors';
 import { hapticSelection } from '../../utils/haptics';
 import { palette } from '../../constants/colors';
 
@@ -31,7 +30,7 @@ function PlanListCard({ item, onPress }: PlanListCardProps) {
   const { colors, isDark } = useAppTheme();
   const plan = item.plan;
   const stripeColors = useMemo(() => blockColorsFromPlan(item.bloques ?? []), [item.bloques]);
-  const accent = stripeColors[0] ?? palette.primary;
+  const accent = stripeColors[0] ?? toMatteAccent(palette.primary);
   const isActive = item.activo ?? item.asignaciones?.some((a) => a.activo) ?? false;
   const numBloques = item.bloques?.length ?? 0;
   const tipo = plan.tipo_plan?.nombre_tipo?.trim() || 'S.D.';
@@ -80,12 +79,7 @@ function PlanListCard({ item, onPress }: PlanListCardProps) {
       accessibilityRole="button"
       accessibilityLabel={`Ver plan ${plan.nombre_plan}`}
     >
-      <LinearGradient
-        colors={[accent, `${accent}CC`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerBand}
-      >
+      <View style={[styles.headerBand, { backgroundColor: accent }]}>
         <View style={styles.headerTop}>
           <View style={styles.headerIcon}>
             <Ionicons name="barbell" size={18} color={accent} />
@@ -103,7 +97,7 @@ function PlanListCard({ item, onPress }: PlanListCardProps) {
             </View>
           ) : null}
         </View>
-      </LinearGradient>
+      </View>
 
       <View style={styles.body}>
         <Text style={[styles.objetivo, { color: colors.label }]} numberOfLines={2}>
@@ -116,7 +110,7 @@ function PlanListCard({ item, onPress }: PlanListCardProps) {
               key={chip.text}
               style={[
                 styles.chip,
-                { backgroundColor: `${accent}14`, borderColor: `${accent}30` },
+                { backgroundColor: `${accent}18`, borderColor: `${accent}35` },
               ]}
             >
               <Ionicons name={chip.icon} size={13} color={accent} />
@@ -140,8 +134,8 @@ function PlanListCard({ item, onPress }: PlanListCardProps) {
         ) : null}
 
         <View style={[styles.footer, { borderTopColor: colors.separator }]}>
-          <Text style={[styles.footerText, { color: accent }]}>Ver detalle del plan</Text>
-          <Ionicons name="arrow-forward-circle" size={20} color={accent} />
+          <Text style={[styles.footerText, { color: colors.secondaryLabel }]}>Ver detalle del plan</Text>
+          <Ionicons name="arrow-forward-circle" size={20} color={colors.tertiaryLabel} />
         </View>
       </View>
     </Pressable>
@@ -170,7 +164,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -202,7 +196,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#86EFAC',
+    backgroundColor: 'rgba(167, 243, 208, 0.95)',
   },
   activeBadgeText: {
     color: '#FFF',

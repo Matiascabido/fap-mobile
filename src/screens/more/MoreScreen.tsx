@@ -23,6 +23,7 @@ import { buildQuickAccesses } from '../../utils/quickAccesses';
 import { navigateToModule } from '../../utils/navigateModule';
 import { MoreStackParamList } from '../../navigation/types';
 import { palette } from '../../constants/colors';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 
 type MoreNav = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
@@ -43,8 +44,9 @@ export default function MoreScreen() {
   const [showQuickAccess, setShowQuickAccess] = useState(false);
 
   const rolLabel = getRolLabel(user);
-  const cardBg = isDark ? palette.darkCard : '#FFFFFF';
-  const borderColor = isDark ? palette.darkBorder : palette.slate200;
+  const screenBg = useScreenBackground();
+  const cardBg = colors.secondaryGroupedBackground;
+  const borderColor = colors.separator;
 
   const quickAccesses = buildQuickAccesses({
     isSocioSolo: isSocioSinPlan(),
@@ -69,7 +71,7 @@ export default function MoreScreen() {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.groupedBackground }]}
+      style={[styles.container, { backgroundColor: screenBg }]}
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}

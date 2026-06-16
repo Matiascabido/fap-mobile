@@ -16,6 +16,7 @@ import { tutorialesService, TUTORIALES_PAGE_SIZE } from '../../services/api/tuto
 import { Tutorial } from '../../types/tutoriales.types';
 import { VideoFeedItem } from '../../types/video.types';
 import { useAppTheme } from '../../context/ThemeContext';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { palette } from '../../constants/colors';
 import { useDebounce } from '../../hooks/useDebounce';
 import Loader from '../../components/common/Loader';
@@ -38,7 +39,7 @@ export default function TutorialesScreen() {
 
   const debouncedSearch = useDebounce(search, 500);
 
-  const bgColor = colors.groupedBackground;
+  const bgColor = useScreenBackground();
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;

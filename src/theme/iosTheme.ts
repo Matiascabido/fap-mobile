@@ -1,5 +1,7 @@
 import { Platform, TextStyle } from 'react-native';
 import { palette } from '../constants/colors';
+import { AppearancePreferences, DEFAULT_APPEARANCE } from '../types/appearance.types';
+import { CLASSIC_DARK, MATTE_BLUE_DARK, withImageBackground } from './appearancePresets';
 
 export interface AppThemeTokens {
   systemBackground: string;
@@ -12,6 +14,10 @@ export interface AppThemeTokens {
   tint: string;
   fill: string;
   groupedBackground: string;
+  /** Color sólido detrás de todo el canvas (visible con imagen o sin ella) */
+  canvasBackground: string;
+  hasBackgroundImage: boolean;
+  customBackgroundUri?: string | null;
 }
 
 const IOS_LIGHT: AppThemeTokens = {
@@ -25,19 +31,13 @@ const IOS_LIGHT: AppThemeTokens = {
   tint: palette.primary,
   fill: '#78788033',
   groupedBackground: '#F2F2F7',
+  canvasBackground: '#F2F2F7',
+  hasBackgroundImage: false,
 };
 
-const IOS_DARK: AppThemeTokens = {
-  systemBackground: '#000000',
-  secondaryGroupedBackground: '#1C1C1E',
-  tertiaryGroupedBackground: '#2C2C2E',
-  label: '#FFFFFF',
-  secondaryLabel: '#EBEBF599',
-  tertiaryLabel: '#EBEBF54D',
-  separator: '#54545899',
-  tint: palette.primary,
-  fill: '#7878805C',
-  groupedBackground: '#000000',
+const IOS_DARK_MATTE: AppThemeTokens = {
+  ...MATTE_BLUE_DARK,
+  systemBackground: MATTE_BLUE_DARK.groupedBackground,
 };
 
 const FALLBACK_LIGHT: AppThemeTokens = {
@@ -51,26 +51,39 @@ const FALLBACK_LIGHT: AppThemeTokens = {
   tint: palette.primary,
   fill: palette.slate200,
   groupedBackground: palette.lightBg,
+  canvasBackground: palette.lightBg,
+  hasBackgroundImage: false,
 };
 
-const FALLBACK_DARK: AppThemeTokens = {
-  systemBackground: palette.darkBg,
-  secondaryGroupedBackground: palette.darkCard,
-  tertiaryGroupedBackground: palette.slate800,
-  label: palette.darkTextPrimary,
-  secondaryLabel: palette.darkTextSecondary,
-  tertiaryLabel: palette.slate500,
-  separator: palette.darkBorder,
-  tint: palette.primary,
-  fill: palette.slate700,
-  groupedBackground: palette.darkBg,
-};
-
-export function getAppTheme(isDark: boolean): AppThemeTokens {
-  if (Platform.OS === 'ios') {
-    return isDark ? IOS_DARK : IOS_LIGHT;
+function darkTokens(preset: AppearancePreferences['darkSurfacePreset']): AppThemeTokens {
+  if (preset === 'classic') {
+    return Platform.OS === 'ios'
+      ? {
+          ...CLASSIC_DARK,
+          systemBackground: '#000000',
+          groupedBackground: '#000000',
+          canvasBackground: '#000000',
+        }
+      : CLASSIC_DARK;
   }
-  return isDark ? FALLBACK_DARK : FALLBACK_LIGHT;
+  return Platform.OS === 'ios' ? IOS_DARK_MATTE : MATTE_BLUE_DARK;
+}
+
+export function getAppTheme(
+  isDark: boolean,
+  appearance: AppearancePreferences = DEFAULT_APPEARANCE
+): AppThemeTokens {
+  const base = isDark ? darkTokens(appearance.darkSurfacePreset) : Platform.OS === 'ios' ? IOS_LIGHT : FALLBACK_LIGHT;
+
+  if (
+    appearance.backgroundMode === 'image' &&
+    appearance.customBackgroundUri &&
+    appearance.customBackgroundUri.length > 0
+  ) {
+    return withImageBackground(base, appearance.customBackgroundUri, isDark);
+  }
+
+  return base;
 }
 
 export const typography = {
