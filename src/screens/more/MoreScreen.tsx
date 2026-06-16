@@ -4,68 +4,58 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
   Alert,
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../../components/common/Avatar';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAppTheme } from '../../context/ThemeContext';
-import { drawerItems, ROUTES } from '../../constants/navigation';
 import { getRolLabel } from '../../utils/sessionRole';
-import ListRow from '../../components/common/ListRow';
 import GroupedSection from '../../components/common/GroupedSection';
-import { MoreStackParamList, MainTabParamList } from '../../navigation/types';
-
-const MORE_ROUTES = new Set([ROUTES.HOME, ROUTES.PLANES, ROUTES.TUTORIALES]);
-const TAB_ROUTES = new Set([ROUTES.HOME, ROUTES.PLANES, ROUTES.TUTORIALES]);
+import QuickAccessGrid from '../../components/common/QuickAccessGrid';
+import { buildQuickAccesses } from '../../utils/quickAccesses';
+import { navigateToModule } from '../../utils/navigateModule';
+import { MoreStackParamList } from '../../navigation/types';
+import { palette } from '../../constants/colors';
 
 type MoreNav = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
 export default function MoreScreen() {
   const navigation = useNavigation<MoreNav>();
   const { user, logout } = useAuth();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const {
     hasPermission,
     isGodOrAdmin,
-    isProfesional,
+    isProfesionalUser,
     isSocioSinPlan,
+    canManageTurnos,
+    canEnrollTurnos,
     canManageEvaluaciones,
   } = usePermissions();
 
   const rolLabel = getRolLabel(user);
-  const isSocioSolo = isSocioSinPlan();
+  const cardBg = isDark ? palette.darkCard : '#FFFFFF';
+  const borderColor = isDark ? palette.darkBorder : palette.slate200;
 
-  const isItemVisible = (item: (typeof drawerItems)[0]): boolean => {
-    if (MORE_ROUTES.has(item.route)) return false;
-    if (!item.scope) return item.route !== ROUTES.HOME;
-    if (item.route === ROUTES.METRICAS) return true;
-    if (isSocioSolo) return item.route === ROUTES.METRICAS;
-    if (item.route === ROUTES.EVALUACIONES) return canManageEvaluaciones();
-    if (item.route === ROUTES.SOCIOS) return isGodOrAdmin() || isProfesional();
-    if (item.route === ROUTES.SUSCRIPCIONES) {
-      return isGodOrAdmin() || isProfesional() || hasPermission(item.scope);
-    }
-    const permisos = user?.permisos ?? [];
-    if (permisos.length === 0) {
-      if (isGodOrAdmin() || isProfesional()) return true;
-      return item.route === ROUTES.TURNERO || item.route === ROUTES.METRICAS;
-    }
-    return hasPermission(item.scope);
-  };
+  const quickAccesses = buildQuickAccesses({
+    isSocioSolo: isSocioSinPlan(),
+    isProfesional: isProfesionalUser,
+    isAdmin: isGodOrAdmin(),
+    canManageTurnos: canManageTurnos(),
+    canEnrollTurnos: canEnrollTurnos(),
+    canManageEvaluaciones: canManageEvaluaciones(),
+    hasPermission,
+  });
 
-  const menuItems = drawerItems.filter(isItemVisible);
-
-  const navigateToModule = (route: keyof MoreStackParamList | keyof MainTabParamList) => {
-    if (TAB_ROUTES.has(route)) {
-      navigation.getParent()?.navigate(route as keyof MainTabParamList);
-      return;
-    }
-    navigation.navigate(route as Exclude<keyof MoreStackParamList, 'MoreMenu'>);
+  const handleQuickAccess = (route: string) => {
+    navigateToModule(navigation.getParent() ?? navigation, route);
   };
 
   const handleLogout = () => {
@@ -82,65 +72,55 @@ export default function MoreScreen() {
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
     >
-      <GroupedSection title="Perfil">
-        <View style={styles.profileRow}>
-          <Avatar nombre={user?.nombre} apellido={user?.apellido} size={52} />
-          <View style={styles.profileInfo}>
-            <Text style={[styles.userName, { color: colors.label }]}>
-              {user?.nombre} {user?.apellido}
-            </Text>
-            <Text style={[styles.userEmail, { color: colors.secondaryLabel }]} numberOfLines={1}>
-              {user?.mail}
-            </Text>
-            <Text style={[styles.roleText, { color: colors.tint }]}>{rolLabel}</Text>
+      <LinearGradient
+        colors={['#0f172a', '#7f1d1d']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.profileCard}
+      >
+        <Avatar nombre={user?.nombre} apellido={user?.apellido} size={56} />
+        <View style={styles.profileInfo}>
+          <Text style={styles.userName}>
+            {user?.nombre} {user?.apellido}
+          </Text>
+          <Text style={styles.userEmail} numberOfLines={1}>
+            {user?.mail}
+          </Text>
+          <View style={styles.rolePill}>
+            <Ionicons name="shield-checkmark" size={13} color="#FFF" />
+            <Text style={styles.roleText}>{rolLabel}</Text>
           </View>
         </View>
-      </GroupedSection>
+      </LinearGradient>
 
-      {menuItems.length > 0 ? (
-        <GroupedSection title="Módulos">
-          {menuItems.map((item, index) => (
-            <ListRow
-              key={item.route}
-              title={item.name}
-              onPress={() => navigateToModule(item.route as keyof MoreStackParamList)}
-              icon={mapIcon(item.icon)}
-              isLast={index === menuItems.length - 1}
-            />
-          ))}
-        </GroupedSection>
-      ) : null}
+      <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
+        <Text style={[styles.sectionTitle, { color: colors.label }]}>Accesos rápidos</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.secondaryLabel }]}>
+          Navegá directamente a las secciones más usadas
+        </Text>
+        <QuickAccessGrid items={quickAccesses} onPress={handleQuickAccess} />
+      </View>
 
       <GroupedSection title="Cuenta">
-        <ListRow
-          title="Mi perfil"
+        <TouchableOpacity
+          style={[styles.accountRow, { borderBottomColor: colors.separator }]}
           onPress={() => navigation.navigate('Perfil')}
-          icon="person-outline"
-        />
-        <ListRow
-          title="Cerrar sesión"
-          onPress={handleLogout}
-          icon="log-out-outline"
-          isLast
-          showChevron={false}
-        />
+        >
+          <View style={[styles.accountIcon, { backgroundColor: `${palette.primary}15` }]}>
+            <Ionicons name="person-outline" size={20} color={palette.primary} />
+          </View>
+          <Text style={[styles.accountLabel, { color: colors.label }]}>Mi perfil</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.tertiaryLabel} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.accountRow} onPress={handleLogout}>
+          <View style={[styles.accountIcon, { backgroundColor: `${palette.error}12` }]}>
+            <Ionicons name="log-out-outline" size={20} color={palette.error} />
+          </View>
+          <Text style={[styles.accountLabel, { color: palette.error }]}>Cerrar sesión</Text>
+        </TouchableOpacity>
       </GroupedSection>
     </ScrollView>
   );
-}
-
-function mapIcon(icon: string): keyof typeof Ionicons.glyphMap {
-  const map: Record<string, keyof typeof Ionicons.glyphMap> = {
-    home: 'home-outline',
-    'account-group': 'people-outline',
-    dumbbell: 'barbell-outline',
-    'card-account-details': 'card',
-    'calendar-clock': 'calendar',
-    'clipboard-text': 'clipboard-outline',
-    'chart-line': 'stats-chart-outline',
-    video: 'videocam-outline',
-  };
-  return map[icon] || 'ellipse-outline';
 }
 
 const styles = StyleSheet.create({
@@ -149,16 +129,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'ios' ? 8 : 16,
     paddingBottom: 32,
-    gap: 8,
+    gap: 16,
   },
-  profileRow: {
+  profileCard: {
+    borderRadius: 22,
+    padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    gap: 14,
+    gap: 16,
+    overflow: 'hidden',
   },
   profileInfo: { flex: 1 },
-  userName: { fontSize: 18, fontWeight: '700' },
-  userEmail: { fontSize: 14, marginTop: 2 },
-  roleText: { fontSize: 13, fontWeight: '600', marginTop: 6 },
+  userName: { color: '#FFF', fontSize: 20, fontWeight: '800' },
+  userEmail: { color: 'rgba(255,255,255,0.75)', fontSize: 14, marginTop: 2 },
+  rolePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    gap: 5,
+  },
+  roleText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+  sectionCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '800' },
+  sectionSubtitle: { fontSize: 13, marginTop: 4, marginBottom: 16, lineHeight: 18 },
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  accountIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
 });

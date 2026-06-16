@@ -183,7 +183,16 @@ export default function MainNavigator() {
           options={{ title: 'Tutoriales' }}
         />
       ) : null}
-      <Tab.Screen name={'More' as 'More'} component={MoreNavigator} options={{ title: 'Más' }} />
+      <Tab.Screen
+        name={'More' as 'More'}
+        component={MoreNavigator}
+        options={{ title: 'Más' }}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('More', { screen: 'MoreMenu' });
+          },
+        })}
+      />
     </Tab.Navigator>
   );
 }

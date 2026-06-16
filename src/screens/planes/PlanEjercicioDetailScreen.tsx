@@ -31,15 +31,14 @@ import {
 } from '../../utils/planExerciseDetailRows';
 import {
   EDITABLE_FIELD_BY_LABEL,
-  PRIMARY_PRESCRIPTION_LABELS,
-  EXTRA_PRESCRIPTION_LABELS,
+  EDITABLE_PRESCRIPTION_LABELS,
   displayValueForField,
   resolveCatalogEjercicioId,
 } from '../../utils/ejercicioEditFields';
 
 type Route = RouteProp<PlanesStackParamList, 'PlanEjercicioDetail'>;
 
-const ALL_EDITABLE_PRESCRIPTION = [...PRIMARY_PRESCRIPTION_LABELS, ...EXTRA_PRESCRIPTION_LABELS];
+const EDITABLE_LABELS = new Set<string>(EDITABLE_PRESCRIPTION_LABELS);
 
 export default function PlanEjercicioDetailScreen() {
   const navigation = useNavigation();
@@ -132,12 +131,18 @@ export default function PlanEjercicioDetailScreen() {
   }, [ejercicio, nombre, bloqueNombre, puedeTenerVideo]);
 
   const prescriptionRows = useMemo(() => prescriptionRowsForDisplay(display), [display]);
-  const otherRows = useMemo(
-    () =>
-      otherDetailRowsForDisplay(display).filter(
-        (r) => r.label !== 'Observaciones' || !canEdit
-      ),
-    [display, canEdit]
+  const readOnlyPrescriptionRows = useMemo(
+    () => prescriptionRows.filter((r) => !EDITABLE_LABELS.has(r.label)),
+    [prescriptionRows]
+  );
+  const otherRows = useMemo(() => otherDetailRowsForDisplay(display), [display]);
+  const observacionesRow = useMemo(
+    () => otherRows.find((r) => r.label === 'Observaciones'),
+    [otherRows]
+  );
+  const detailRowsWithoutObs = useMemo(
+    () => otherRows.filter((r) => r.label !== 'Observaciones'),
+    [otherRows]
   );
   const descripcion =
     typeof display.descripcion === 'string' && display.descripcion.trim()
@@ -153,9 +158,11 @@ export default function PlanEjercicioDetailScreen() {
           </Text>
         </View>
       ) : null}
-      {ALL_EDITABLE_PRESCRIPTION.map((label, index) => {
+      {EDITABLE_PRESCRIPTION_LABELS.map((label, index) => {
         const fieldName = EDITABLE_FIELD_BY_LABEL[label];
         if (!fieldName) return null;
+        const isLastEditable =
+          index === EDITABLE_PRESCRIPTION_LABELS.length - 1 && readOnlyPrescriptionRows.length === 0;
         return (
           <EditableExerciseField
             key={label}
@@ -164,7 +171,7 @@ export default function PlanEjercicioDetailScreen() {
             fieldName={fieldName}
             ejercicioId={canEdit ? ejercicioId : null}
             editable={canEdit}
-            isLast={index === ALL_EDITABLE_PRESCRIPTION.length - 1}
+            isLast={isLastEditable}
             editingKey={editingKey}
             onEditStart={setEditingKey}
             onEditEnd={() => setEditingKey(null)}
@@ -172,8 +179,59 @@ export default function PlanEjercicioDetailScreen() {
           />
         );
       })}
+      {readOnlyPrescriptionRows.map((row, index) => (
+        <ListRow
+          key={row.label}
+          title={row.label}
+          detail={row.value}
+          isLast={index === readOnlyPrescriptionRows.length - 1}
+        />
+      ))}
     </GroupedSection>
   );
+
+  const renderPrescriptionSection = () => {
+    if (canEdit) return renderEditablePrescription();
+    if (prescriptionRows.length === 0) return null;
+    return (
+      <GroupedSection title="Prescripción">
+        {prescriptionRows.map((row, index) => (
+          <ListRow
+            key={row.label}
+            title={row.label}
+            detail={row.value}
+            isLast={index === prescriptionRows.length - 1}
+          />
+        ))}
+      </GroupedSection>
+    );
+  };
+
+  const renderVideoSection = () => {
+    if (!puedeTenerVideo) return null;
+    return (
+      <GroupedSection title="Video tutorial">
+        {loadingVideo ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={colors.tint} />
+            <Text style={[styles.loadingHint, { color: colors.secondaryLabel }]}>
+              Cargando video…
+            </Text>
+          </View>
+        ) : videoFeedItem ? (
+          <TutorialVideoCard item={videoFeedItem} onPress={() => setShowVideo(true)} />
+        ) : (
+          <View style={styles.descBox}>
+            <Text style={[styles.descText, { color: colors.secondaryLabel }]}>
+              {videoError
+                ? 'No se pudo cargar el video. Verificá tu conexión e intentá de nuevo.'
+                : 'No hay video disponible para este ejercicio.'}
+            </Text>
+          </View>
+        )}
+      </GroupedSection>
+    );
+  };
 
   return (
     <ScrollView
@@ -189,11 +247,7 @@ export default function PlanEjercicioDetailScreen() {
 
       <Text style={[styles.heroTitle, typography.title2, { color: colors.label }]}>{nombre}</Text>
 
-      {canEdit ? (
-        <Text style={[styles.editHint, { color: colors.secondaryLabel }]}>
-          Tocá un campo para editar series, repeticiones, peso u otros datos.
-        </Text>
-      ) : null}
+      {renderVideoSection()}
 
       {loadingDetail ? (
         <View style={styles.loadingRow}>
@@ -205,96 +259,40 @@ export default function PlanEjercicioDetailScreen() {
       ) : null}
 
       {canEdit ? (
-        renderEditablePrescription()
-      ) : prescriptionRows.length > 0 ? (
-        <GroupedSection title="Prescripción">
-          {prescriptionRows.map((row, index) => (
-            <ListRow
-              key={row.label}
-              title={row.label}
-              detail={row.value}
-              isLast={index === prescriptionRows.length - 1}
-            />
-          ))}
-        </GroupedSection>
+        <Text style={[styles.editHint, { color: colors.secondaryLabel }]}>
+          Tocá series, repeticiones o peso para modificarlos.
+        </Text>
       ) : null}
 
-      {canEdit ? (
-        <GroupedSection title="Observaciones">
-          <EditableExerciseField
-            label="Observaciones"
-            value={displayValueForField(display, 'observaciones')}
-            fieldName="observaciones"
-            ejercicioId={ejercicioId}
-            editable={canEdit}
-            multiline
-            placeholder="Sin observaciones"
-            isLast
-            editingKey={editingKey}
-            onEditStart={setEditingKey}
-            onEditEnd={() => setEditingKey(null)}
-            onSaved={() => void reloadDetail()}
-          />
-        </GroupedSection>
-      ) : otherRows.length > 0 ? (
+      {renderPrescriptionSection()}
+
+      {detailRowsWithoutObs.length > 0 ? (
         <GroupedSection title="Detalle">
-          {otherRows.map((row, index) => (
+          {detailRowsWithoutObs.map((row, index) => (
             <ListRow
               key={row.label}
               title={row.label}
               detail={row.value}
-              isLast={index === otherRows.length - 1}
+              isLast={index === detailRowsWithoutObs.length - 1}
             />
           ))}
-        </GroupedSection>
-      ) : null}
-
-      {puedeTenerVideo ? (
-        <GroupedSection title="Video tutorial">
-          {loadingVideo ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.tint} />
-              <Text style={[styles.loadingHint, { color: colors.secondaryLabel }]}>
-                Cargando video…
-              </Text>
-            </View>
-          ) : videoFeedItem ? (
-            <TutorialVideoCard item={videoFeedItem} onPress={() => setShowVideo(true)} />
-          ) : (
-            <View style={styles.descBox}>
-              <Text style={[styles.descText, { color: colors.secondaryLabel }]}>
-                {videoError
-                  ? 'No se pudo cargar el video. Verificá tu conexión e intentá de nuevo.'
-                  : 'No hay video disponible para este ejercicio.'}
-              </Text>
-            </View>
-          )}
         </GroupedSection>
       ) : null}
 
       <GroupedSection title="Descripción">
-        {canEdit ? (
-          <EditableExerciseField
-            label="Descripción"
-            value={descripcion}
-            fieldName="descripcion"
-            ejercicioId={ejercicioId}
-            editable={canEdit}
-            multiline
-            placeholder="Sin descripción"
-            isLast
-            editingKey={editingKey}
-            onEditStart={setEditingKey}
-            onEditEnd={() => setEditingKey(null)}
-            onSaved={() => void reloadDetail()}
-          />
-        ) : (
-          <View style={styles.descBox}>
-            <Text style={[styles.descText, { color: colors.label }]}>
-              {descripcion || 'Sin descripción disponible para este ejercicio.'}
-            </Text>
-          </View>
-        )}
+        <View style={styles.descBox}>
+          <Text style={[styles.descText, { color: colors.label }]}>
+            {descripcion || 'Sin descripción disponible para este ejercicio.'}
+          </Text>
+        </View>
+      </GroupedSection>
+
+      <GroupedSection title="Observaciones">
+        <View style={styles.descBox}>
+          <Text style={[styles.descText, { color: colors.label }]}>
+            {observacionesRow?.value || 'Sin observaciones para este ejercicio.'}
+          </Text>
+        </View>
       </GroupedSection>
 
       <VideoPlayerModal

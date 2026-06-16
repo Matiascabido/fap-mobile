@@ -13,7 +13,7 @@ export interface SuscripcionDetalle {
 export interface CreateSuscripcionDetalleDTO {
   nombre: string;
   descripcion?: string;
-  precio?: number;
+  precio?: string | number;
   moneda?: string;
   duracion_dias?: number;
 }
@@ -44,10 +44,14 @@ export const suscripcionDetalleService = {
   },
 
   async create(dto: CreateSuscripcionDetalleDTO): Promise<SuscripcionDetalle> {
-    return apiFetch<SuscripcionDetalle>('/suscripcion-detalles', {
+    const data = await apiFetch<Record<string, unknown>>('/suscripcion-detalles', {
       method: 'POST',
-      data: dto,
+      data: {
+        ...dto,
+        ...(dto.precio != null ? { precio: String(dto.precio) } : {}),
+      },
     });
+    return normalizeDetalle(typeof data === 'object' && data ? data : {});
   },
 
   async delete(id: string): Promise<void> {

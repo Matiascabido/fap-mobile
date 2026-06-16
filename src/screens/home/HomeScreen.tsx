@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -15,29 +14,9 @@ import { useAppTheme } from '../../context/ThemeContext';
 import { palette } from '../../constants/colors';
 import { getGreeting, formatLongDate, capitalize } from '../../utils/formatters';
 import { getRolLabel } from '../../utils/sessionRole';
-
-function navigateToModule(navigation: any, route: string) {
-  const tabRoutes = new Set(['Home', 'Planes', 'Tutoriales']);
-  if (tabRoutes.has(route)) {
-    if (route === 'Home') {
-      navigation.popToTop?.();
-      return;
-    }
-    navigation.navigate(route, {
-      screen: route === 'Planes' ? 'PlanesList' : 'TutorialesMain',
-    });
-    return;
-  }
-  navigation.navigate('More', { screen: route });
-}
-
-interface QuickAccess {
-  title: string;
-  description: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  route: string;
-  accent?: string;
-}
+import QuickAccessGrid from '../../components/common/QuickAccessGrid';
+import { buildQuickAccesses } from '../../utils/quickAccesses';
+import { navigateToModule } from '../../utils/navigateModule';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -125,153 +104,14 @@ export default function HomeScreen() {
         </Text>
 
         <View style={styles.grid}>
-          {quickAccesses.map((item) => (
-            <TouchableOpacity
-              key={item.route}
-              style={[
-                styles.accessCard,
-                { backgroundColor: isDark ? palette.slate800 : palette.slate50, borderColor },
-              ]}
-              onPress={() => navigateToModule(navigation, item.route)}
-              activeOpacity={0.85}
-            >
-              <View
-                style={[
-                  styles.accessIconContainer,
-                  { backgroundColor: `${item.accent ?? palette.primary}18` },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={item.icon}
-                  size={26}
-                  color={item.accent ?? palette.primary}
-                />
-              </View>
-              <Text style={[styles.accessTitle, { color: textPrimary }]}>{item.title}</Text>
-              <Text
-                style={[styles.accessDescription, { color: textSecondary }]}
-                numberOfLines={2}
-              >
-                {item.description}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <QuickAccessGrid
+            items={quickAccesses}
+            onPress={(route) => navigateToModule(navigation, route)}
+          />
         </View>
       </View>
     </ScrollView>
   );
-}
-
-// ─── Lógica de accesos por rol ─────────────────────────────────────────────
-
-interface BuildAccessesParams {
-  isSocioSolo: boolean;
-  isProfesional: boolean;
-  isAdmin: boolean;
-  canManageTurnos: boolean;
-  canEnrollTurnos: boolean;
-  canManageEvaluaciones: boolean;
-  hasPermission: (codigo: string) => boolean;
-}
-
-function buildQuickAccesses(p: BuildAccessesParams): QuickAccess[] {
-  // Socios club sin entrenamiento → solo tutoriales
-  if (p.isSocioSolo) {
-    return [
-      {
-        title: 'Tutoriales',
-        description: 'Videos de ejercicios y técnicas',
-        icon: 'video',
-        route: 'Tutoriales',
-        accent: palette.info,
-      },
-      {
-        title: 'Métricas',
-        description: 'Visualizá tu actividad',
-        icon: 'chart-line',
-        route: 'Metricas',
-      },
-    ];
-  }
-
-  const accesses: QuickAccess[] = [];
-
-  // Métricas — siempre
-  accesses.push({
-    title: 'Métricas',
-    description: 'Dashboard según tu rol',
-    icon: 'chart-line',
-    route: 'Metricas',
-  });
-
-  // Turnero
-  if (p.canManageTurnos || p.canEnrollTurnos || p.hasPermission('turnero:view')) {
-    accesses.push({
-      title: 'Turnero',
-      description: p.canManageTurnos ? 'Gestioná clases y turnos' : 'Inscribite a tus clases',
-      icon: 'calendar-clock',
-      route: 'Turnero',
-      accent: palette.success,
-    });
-  }
-
-  // Planes
-  if (p.hasPermission('planes:view')) {
-    accesses.push({
-      title: 'Planes',
-      description: p.isProfesional || p.isAdmin ? 'Creá y gestioná planes' : 'Tu plan de entrenamiento',
-      icon: 'dumbbell',
-      route: 'Planes',
-      accent: palette.warning,
-    });
-  }
-
-  // Tutoriales
-  if (p.hasPermission('tutoriales:view')) {
-    accesses.push({
-      title: 'Tutoriales',
-      description: 'Videos de ejercicios y técnicas',
-      icon: 'video',
-      route: 'Tutoriales',
-      accent: palette.info,
-    });
-  }
-
-  // Socios (admin/profes)
-  if (p.isAdmin || p.isProfesional) {
-    if (p.hasPermission('usuarios:view')) {
-      accesses.push({
-        title: 'Socios',
-        description: 'Administrá los socios',
-        icon: 'account-group',
-        route: 'Socios',
-      });
-    }
-  }
-
-  // Suscripciones (admin/profes)
-  if ((p.isAdmin || p.isProfesional) && p.hasPermission('suscripciones:view')) {
-    accesses.push({
-      title: 'Suscripciones',
-      description: 'Controlá vencimientos y pagos',
-      icon: 'card-account-details',
-      route: 'Suscripciones',
-      accent: palette.primary,
-    });
-  }
-
-  // Evaluaciones (admin/profes)
-  if (p.canManageEvaluaciones && p.hasPermission('evaluaciones:view')) {
-    accesses.push({
-      title: 'Evaluaciones',
-      description: 'Seguimiento físico de socios',
-      icon: 'clipboard-text',
-      route: 'Evaluaciones',
-      accent: palette.warning,
-    });
-  }
-
-  return accesses;
 }
 
 const styles = StyleSheet.create({
@@ -388,29 +228,5 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 12,
-  },
-  accessCard: {
-    width: '48%',
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 14,
-    minHeight: 130,
-  },
-  accessIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  accessTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  accessDescription: {
-    fontSize: 12,
-    lineHeight: 16,
   },
 });

@@ -1,41 +1,15 @@
-/** Campos PATCH `/ejercicios/{id}` editables en detalle del plan. */
+/** Campos PATCH `/ejercicios/{id}` editables en detalle del plan (solo staff). */
 
-export type EjercicioPatchField =
-  | 'serie'
-  | 'repeticion'
-  | 'peso'
-  | 'rpe'
-  | 'rir'
-  | 'ce'
-  | 'pausa_desde'
-  | 'pausa_hasta'
-  | 'observaciones'
-  | 'descripcion';
+export type EjercicioPatchField = 'serie' | 'repeticion' | 'peso';
 
 export const EDITABLE_FIELD_BY_LABEL: Record<string, EjercicioPatchField> = {
   Series: 'serie',
   Repeticiones: 'repeticion',
   Peso: 'peso',
-  RPE: 'rpe',
-  RIR: 'rir',
-  'C.E.': 'ce',
-  'Pausa desde': 'pausa_desde',
-  'Pausa hasta': 'pausa_hasta',
-  Observaciones: 'observaciones',
-  Descripción: 'descripcion',
 };
 
-/** Prescripción principal (siempre visible para edición). */
-export const PRIMARY_PRESCRIPTION_LABELS = ['Series', 'Repeticiones', 'Peso'] as const;
-
-/** Campos extra de prescripción editables. */
-export const EXTRA_PRESCRIPTION_LABELS = [
-  'RPE',
-  'RIR',
-  'C.E.',
-  'Pausa desde',
-  'Pausa hasta',
-] as const;
+/** Únicos campos que el usuario puede modificar dentro del plan. */
+export const EDITABLE_PRESCRIPTION_LABELS = ['Series', 'Repeticiones', 'Peso'] as const;
 
 export const FIELD_MAX = 100;
 
