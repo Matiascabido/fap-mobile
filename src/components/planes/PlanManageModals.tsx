@@ -250,7 +250,6 @@ export function AddEjercicioModal({
       visible={visible}
       transparent
       animationType="slide"
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : undefined}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView

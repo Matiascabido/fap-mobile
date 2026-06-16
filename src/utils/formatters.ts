@@ -2,19 +2,38 @@ import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { parseFechaLocal } from './fechasAlertas';
 
+function parseDateInput(dateInput: string | Date): Date | null {
+  if (dateInput instanceof Date) {
+    return isValid(dateInput) ? dateInput : null;
+  }
+  return parseFechaLocal(dateInput);
+}
+
+/** Datetime con componente horario (ISO, offset, etc.) */
+function parseDateTimeInput(dateInput: string | Date): Date | null {
+  if (dateInput instanceof Date) {
+    return isValid(dateInput) ? dateInput : null;
+  }
+  const s = dateInput.trim();
+  if (!s) return null;
+  try {
+    const parsed = parseISO(s);
+    if (isValid(parsed)) return parsed;
+  } catch {
+    /* ignore */
+  }
+  const native = new Date(s.includes('T') ? s : s.replace(/-/g, '/'));
+  return Number.isNaN(native.getTime()) ? null : native;
+}
+
 /**
  * Formatea una fecha ISO a formato legible en español
  */
 export function formatDate(dateInput: string | Date | null | undefined, pattern = 'dd/MM/yyyy'): string {
   try {
     if (dateInput == null) return '-';
-    let date: Date | null = null;
-    if (typeof dateInput === 'string') {
-      date = parseFechaLocal(dateInput);
-    } else {
-      date = dateInput;
-    }
-    if (!date || !isValid(date)) return '-';
+    const date = parseDateInput(dateInput);
+    if (!date) return '-';
     return format(date, pattern, { locale: es });
   } catch {
     return '-';
@@ -25,14 +44,28 @@ export function formatDate(dateInput: string | Date | null | undefined, pattern 
  * Formatea una fecha con hora
  */
 export function formatDateTime(dateInput: string | Date): string {
-  return formatDate(dateInput, "dd/MM/yyyy 'a las' HH:mm");
+  try {
+    if (dateInput == null) return '-';
+    const date = parseDateTimeInput(dateInput);
+    if (!date) return '-';
+    return format(date, "dd/MM/yyyy 'a las' HH:mm", { locale: es });
+  } catch {
+    return '-';
+  }
 }
 
 /**
  * Formatea solo la hora
  */
 export function formatTime(dateInput: string | Date): string {
-  return formatDate(dateInput, 'HH:mm');
+  try {
+    if (dateInput == null) return '-';
+    const date = parseDateTimeInput(dateInput);
+    if (!date) return '-';
+    return format(date, 'HH:mm', { locale: es });
+  } catch {
+    return '-';
+  }
 }
 
 /**

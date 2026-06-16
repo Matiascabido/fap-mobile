@@ -56,7 +56,6 @@ export default function TurnoDetailModal({
       visible={visible}
       transparent
       animationType="slide"
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : undefined}
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
