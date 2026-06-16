@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { metricasService } from '../../services/api/metricas.service';
-import { MetricasDashboardResponse } from '../../types/metricas.types';
+import { DashboardVista, MetricasDashboardResponse } from '../../types/metricas.types';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../hooks/useAuth';
 import { palette } from '../../constants/colors';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, getGreeting } from '../../utils/formatters';
 import KpiCard from '../../components/common/KpiCard';
 import EvolutionChart from '../../components/common/EvolutionChart';
 import Card from '../../components/common/Card';
@@ -20,6 +22,7 @@ import EmptyState from '../../components/common/EmptyState';
 
 export default function MetricasScreen() {
   const { isDark } = useTheme();
+  const { user } = useAuth();
 
   const [dashboard, setDashboard] = useState<MetricasDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,6 +77,7 @@ export default function MetricasScreen() {
 
   const metricas = dashboard.metricas;
   const schema = metricas.schema_panel;
+  const panelTitle = metricasPanelTitle(dashboard.vista);
 
   return (
     <ScrollView
@@ -88,12 +92,21 @@ export default function MetricasScreen() {
         />
       }
     >
-      <Text style={[styles.headerTitle, { color: textPrimary }]}>
-        {dashboard.consulta?.descripcion || 'Panel de métricas'}
-      </Text>
-      <Text style={[styles.headerSubtitle, { color: textSecondary }]}>
-        Actualizado: {new Date(dashboard.generado_en).toLocaleString('es-AR')}
-      </Text>
+      <LinearGradient
+        colors={['#0f172a', '#7f1d1d']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.heroCard}
+      >
+        <Text style={styles.heroEyebrow}>MÉTRICAS DEL SISTEMA · GUIA FA</Text>
+        <Text style={styles.heroTitle}>
+          {getGreeting()}, <Text style={styles.heroName}>{user?.nombre ?? 'usuario'}</Text>!
+        </Text>
+        <Text style={styles.heroSubtitle}>{panelTitle}</Text>
+        <Text style={styles.heroMeta}>
+          Actualizado: {new Date(dashboard.generado_en).toLocaleString('es-AR')}
+        </Text>
+      </LinearGradient>
 
       {schema === 'god_v1' && <GodPanel metricas={metricas} textPrimary={textPrimary} textSecondary={textSecondary} />}
       {schema === 'profesional_v1' && (
@@ -120,6 +133,21 @@ export default function MetricasScreen() {
       )}
     </ScrollView>
   );
+}
+
+function metricasPanelTitle(vista: DashboardVista): string {
+  switch (vista) {
+    case 'admin_global':
+      return 'Vista general del club';
+    case 'profesional':
+      return 'Tu actividad como profesional';
+    case 'admin_socio':
+      return 'Gestión de socios';
+    case 'socio':
+      return 'Tu progreso y actividad';
+    default:
+      return 'Panel de métricas';
+  }
 }
 
 interface PanelProps {
@@ -337,14 +365,38 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    marginTop: 4,
+  heroCard: {
+    borderRadius: 22,
+    padding: 20,
     marginBottom: 20,
+    overflow: 'hidden',
+  },
+  heroEyebrow: {
+    color: 'rgba(147,197,253,0.9)',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 30,
+  },
+  heroName: {
+    color: '#f87171',
+  },
+  heroSubtitle: {
+    color: palette.slate400,
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  heroMeta: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 12,
+    marginTop: 10,
   },
   sectionLabel: {
     fontSize: 18,

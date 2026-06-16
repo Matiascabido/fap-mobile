@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,8 @@ export default function MoreScreen() {
     canEnrollTurnos,
     canManageEvaluaciones,
   } = usePermissions();
+
+  const [showQuickAccess, setShowQuickAccess] = useState(false);
 
   const rolLabel = getRolLabel(user);
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
@@ -93,14 +95,6 @@ export default function MoreScreen() {
         </View>
       </LinearGradient>
 
-      <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
-        <Text style={[styles.sectionTitle, { color: colors.label }]}>Accesos rápidos</Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.secondaryLabel }]}>
-          Navegá directamente a las secciones más usadas
-        </Text>
-        <QuickAccessGrid items={quickAccesses} onPress={handleQuickAccess} />
-      </View>
-
       <GroupedSection title="Cuenta">
         <TouchableOpacity
           style={[styles.accountRow, { borderBottomColor: colors.separator }]}
@@ -119,6 +113,37 @@ export default function MoreScreen() {
           <Text style={[styles.accountLabel, { color: palette.error }]}>Cerrar sesión</Text>
         </TouchableOpacity>
       </GroupedSection>
+
+      <TouchableOpacity
+        style={[styles.quickAccessToggle, { backgroundColor: cardBg, borderColor }]}
+        onPress={() => setShowQuickAccess((v) => !v)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showQuickAccess }}
+      >
+        <View style={[styles.quickAccessIcon, { backgroundColor: `${palette.primary}15` }]}>
+          <Ionicons name="flash" size={20} color={palette.primary} />
+        </View>
+        <View style={styles.quickAccessText}>
+          <Text style={[styles.quickAccessTitle, { color: colors.label }]}>Accesos rápidos</Text>
+          <Text style={[styles.quickAccessHint, { color: colors.secondaryLabel }]}>
+            {showQuickAccess
+              ? 'Tocá para ocultar'
+              : 'Tocá para ver todas las secciones'}
+          </Text>
+        </View>
+        <Ionicons
+          name={showQuickAccess ? 'chevron-up' : 'chevron-down'}
+          size={20}
+          color={colors.tertiaryLabel}
+        />
+      </TouchableOpacity>
+
+      {showQuickAccess ? (
+        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
+          <QuickAccessGrid items={quickAccesses} onPress={handleQuickAccess} />
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -154,13 +179,6 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   roleText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
-  sectionCard: {
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 20,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '800' },
-  sectionSubtitle: { fontSize: 13, marginTop: 4, marginBottom: 16, lineHeight: 18 },
   accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -177,4 +195,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   accountLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
+  quickAccessToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    marginTop: 4,
+  },
+  quickAccessIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickAccessText: { flex: 1 },
+  quickAccessTitle: { fontSize: 16, fontWeight: '800' },
+  quickAccessHint: { fontSize: 12, marginTop: 2, lineHeight: 16 },
+  sectionCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    marginTop: -8,
+  },
 });

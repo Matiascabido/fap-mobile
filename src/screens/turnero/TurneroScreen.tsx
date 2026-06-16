@@ -334,7 +334,7 @@ export default function TurneroScreen() {
         </ScrollView>
 
         <View style={[styles.dayHeader, { borderTopColor: borderColor }]}>
-          <Text style={[styles.selectedDayTitle, { color: textPrimary }]}>
+          <Text style={[styles.selectedDayTitle, { color: textPrimary }]} numberOfLines={2}>
             {capitalize(format(selectedDay, "EEEE d 'de' MMMM", { locale: es }))}
           </Text>
           <Text style={[styles.turnosCount, { color: textSecondary }]}>
@@ -587,10 +587,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(100,116,139,0.08)',
   },
-  daysRow: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+  daysRow: { paddingHorizontal: 12, paddingBottom: 16, gap: 8, paddingTop: 4 },
   dayChip: {
-    minWidth: 62, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8,
-    borderRadius: 16, borderWidth: 1, backgroundColor: 'transparent',
+    minWidth: 68,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
   dayChipSelected: {
     backgroundColor: palette.primary, borderColor: palette.primary,
@@ -606,11 +612,13 @@ const styles = StyleSheet.create({
   },
   dayBadgeText: { fontSize: 10, fontWeight: '800' },
   dayHeader: {
-    borderTopWidth: 1, paddingHorizontal: 16, paddingVertical: 12,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 4,
   },
-  selectedDayTitle: { fontSize: 15, fontWeight: '800' },
-  turnosCount: { fontSize: 13 },
+  selectedDayTitle: { fontSize: 15, fontWeight: '800', flexShrink: 1 },
+  turnosCount: { fontSize: 13, alignSelf: 'flex-start' },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',

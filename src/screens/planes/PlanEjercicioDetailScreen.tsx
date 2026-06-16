@@ -175,7 +175,10 @@ export default function PlanEjercicioDetailScreen() {
             editingKey={editingKey}
             onEditStart={setEditingKey}
             onEditEnd={() => setEditingKey(null)}
-            onSaved={() => void reloadDetail()}
+            onSaved={(patch) => {
+              setDisplay((prev) => ({ ...prev, ...patch }));
+              void reloadDetail();
+            }}
           />
         );
       })}

@@ -24,12 +24,12 @@ export function planEjercicioToDisplay(
     nombre: nested.nombre ?? cat?.nombre ?? 'Ejercicio',
     id_ejercicio: item.id_ejercicio ?? nested.id_ejercicio ?? cat?.id,
     id_video: item.id_video ?? nested.id_video ?? cat?.id_video,
-    peso: strOrUndef(item.peso) ?? strOrUndef(nested.peso) ?? strOrUndef(cat?.peso),
-    serie: strOrUndef(item.series) ?? strOrUndef(nested.serie) ?? strOrUndef(cat?.serie),
+    peso: strOrUndef(cat?.peso) ?? strOrUndef(nested.peso) ?? strOrUndef(item.peso),
+    serie: strOrUndef(cat?.serie) ?? strOrUndef(nested.serie) ?? strOrUndef(item.series),
     repeticion:
-      strOrUndef(item.reps) ??
+      strOrUndef(cat?.repeticion) ??
       strOrUndef(nested.repeticion) ??
-      strOrUndef(cat?.repeticion),
+      strOrUndef(item.reps),
     descripcion: nested.descripcion ?? cat?.descripcion,
     observaciones: nested.observaciones ?? cat?.observaciones,
     rpe: nested.rpe ?? cat?.rpe,

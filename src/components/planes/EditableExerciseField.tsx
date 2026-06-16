@@ -28,7 +28,7 @@ interface EditableExerciseFieldProps {
   editingKey: string | null;
   onEditStart: (key: string) => void;
   onEditEnd: () => void;
-  onSaved: () => void;
+  onSaved: (patch: Partial<Record<EjercicioPatchField, string | null>>) => void;
 }
 
 export default function EditableExerciseField({
@@ -88,7 +88,7 @@ export default function EditableExerciseField({
     try {
       await ejerciciosService.update(ejercicioId, { [fieldName]: trimmed || null });
       onEditEnd();
-      onSaved();
+      onSaved({ [fieldName]: trimmed || null });
     } catch (err: any) {
       Alert.alert('Error', err?.message || `No se pudo actualizar ${label.toLowerCase()}.`);
     } finally {

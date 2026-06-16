@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
@@ -38,7 +39,7 @@ const MEDIO_PAGO_LABELS: Record<string, string> = {
 export default function PerfilScreen() {
   const { user, logout } = useAuth();
   const { theme, isDark, setTheme } = useTheme();
-  const { getPermissionCodes, isProfesionalUser, isGodOrAdmin, isSocioUser, hasPermission } =
+  const { getPermissionCodes, isProfesionalUser, isAdminUser, isSocioUser, hasPermission } =
     usePermissions();
 
   const bgColor = isDark ? palette.darkBg : palette.lightBg;
@@ -48,7 +49,7 @@ export default function PerfilScreen() {
 
   const permisos = getPermissionCodes();
   const rolLabel = getRolLabel(user);
-  const canVerCobranzas = hasPermission('cobranzas:view') || isProfesionalUser || isGodOrAdmin();
+  const canVerCobranzas = hasPermission('cobranzas:view') || isProfesionalUser || isAdminUser;
 
   // Cobranzas
   const [pagos, setPagos] = useState<PagoCobranza[]>([]);
@@ -59,19 +60,18 @@ export default function PerfilScreen() {
     if (!user || !canVerCobranzas) return;
     setLoadingPagos(true);
     try {
-      const params = isProfesionalUser && !isGodOrAdmin()
-        ? { id_usuario_profesional: user.id, limit: 20 }
-        : isSocioUser
-        ? { id_usuario_socio: user.id, limit: 20 }
-        : { limit: 20 };
+      const params =
+        isProfesionalUser && !isAdminUser
+          ? { id_usuario_profesional: user.id, limit: 20 }
+          : isSocioUser
+          ? { id_usuario_socio: user.id, limit: 20 }
+          : { limit: 20 };
 
+      const mes = new Date().toISOString().slice(0, 7);
       const [pagosData, resumenData] = await Promise.all([
         pagosCobranzasService.getAll(params).catch(() => []),
         pagosCobranzasService
-          .getResumenMes(
-            new Date().toISOString().slice(0, 7),
-            isProfesionalUser && !isGodOrAdmin() ? user.id : undefined
-          )
+          .getResumenMes(mes, isProfesionalUser && !isAdminUser ? user.id : undefined)
           .catch(() => null),
       ]);
       setPagos(pagosData);
@@ -79,11 +79,13 @@ export default function PerfilScreen() {
     } finally {
       setLoadingPagos(false);
     }
-  }, [user, canVerCobranzas, isProfesionalUser, isGodOrAdmin, isSocioUser]);
+  }, [user, canVerCobranzas, isProfesionalUser, isAdminUser, isSocioUser]);
 
-  useEffect(() => {
-    loadCobranzas();
-  }, [loadCobranzas]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadCobranzas();
+    }, [loadCobranzas])
+  );
 
   const handleLogout = () => {
     Alert.alert('Cerrar sesión', '¿Estás seguro de que querés cerrar sesión?', [

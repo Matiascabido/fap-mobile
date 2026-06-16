@@ -22,6 +22,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { filterBySearch } from '../../utils/searchNormalize';
 import { openWhatsApp } from '../../utils/whatsappLink';
 import SocioListCard from '../../components/socios/SocioListCard';
+import InvitarProfesionalModal from '../../components/socios/InvitarProfesionalModal';
 import Loader from '../../components/common/Loader';
 import EmptyState from '../../components/common/EmptyState';
 
@@ -30,13 +31,14 @@ type EstadoFilter = 'todos' | 'activo' | 'inactivo';
 export default function SociosListScreen() {
   const navigation = useNavigation<any>();
   const { colors } = useAppTheme();
-  const { canManageSocios, canViewAllDni, hasPermission } = usePermissions();
+  const { canManageSocios, canViewAllDni, hasPermission, isAdminUser } = usePermissions();
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>('todos');
+  const [showInvitarProf, setShowInvitarProf] = useState(false);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -199,6 +201,29 @@ export default function SociosListScreen() {
         <Text style={[styles.count, typography.footnote, { color: colors.secondaryLabel }]}>
           {filteredSocios.length} {filteredSocios.length === 1 ? 'socio' : 'socios'}
         </Text>
+
+        {(canCreate || isAdminUser) && (
+          <View style={styles.actionRow}>
+            {isAdminUser ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: colors.tint }]}
+                onPress={() => setShowInvitarProf(true)}
+              >
+                <Ionicons name="person-add-outline" size={16} color="#FFF" />
+                <Text style={styles.actionBtnText}>Agregar profesional</Text>
+              </TouchableOpacity>
+            ) : null}
+            {canCreate ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: colors.tint }]}
+                onPress={() => navigation.navigate('SocioForm')}
+              >
+                <Ionicons name="add" size={18} color="#FFF" />
+                <Text style={styles.actionBtnText}>Nuevo socio</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
       </View>
 
       <FlatList
@@ -237,6 +262,8 @@ export default function SociosListScreen() {
           <Ionicons name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       ) : null}
+
+      <InvitarProfesionalModal visible={showInvitarProf} onClose={() => setShowInvitarProf(false)} />
     </View>
   );
 }
@@ -269,6 +296,16 @@ const styles = StyleSheet.create({
   },
   segmentText: { fontSize: 13 },
   count: { marginTop: 10, marginBottom: 4, marginLeft: 4 },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  actionBtnText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 4,
