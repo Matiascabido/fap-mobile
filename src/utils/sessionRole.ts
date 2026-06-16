@@ -6,6 +6,7 @@
 export interface RolUser {
   rol?: string | { nombre_rol?: string } | null;
   id_rol?: string;
+  grupo?: string | null;
 }
 
 /** UUIDs fijos de roles en BD */
@@ -69,10 +70,24 @@ export function esRolSocioClub(user: RolUser | null | undefined): boolean {
   return getRolNombre(user) === 'SOCIO';
 }
 
-/** ENTRENADO OFF (suscripción inactiva) */
+/** ENTRENADO OFF (rol legacy en token; el grupo suele ser «Entrenados Off»). */
 export function esRolEntrnadoOff(user: RolUser | null | undefined): boolean {
   const rol = getRolNombre(user);
   return rol === 'ENTRENADO OFF' || rol === 'ENTRENADO_OFF';
+}
+
+export function getGrupoNombre(user: RolUser | null | undefined): string {
+  if (!user?.grupo) return '';
+  return String(user.grupo).trim();
+}
+
+/**
+ * Entrenado/alumno con suscripción activa (grupo Entrenados) o vencida (Entrenados Off).
+ */
+export function esEntrenadoConSuscripcion(user: RolUser | null | undefined): boolean {
+  if (!esRolEntrenado(user)) return false;
+  const g = getGrupoNombre(user).toLowerCase();
+  return g === 'entrenados' || g === 'entrenados off';
 }
 
 /**
@@ -96,24 +111,25 @@ export function puedeInscribirseATurnos(user: RolUser | null | undefined): boole
 }
 
 /**
- * Puede ver vista mes del turnero: staff + entrenado/alumno (NO socio club, NO entrenado off)
+ * Puede ver vista mes del turnero: staff + entrenado con suscripción (activa o vencida).
  */
 export function puedeVerVistaMesTurnero(user: RolUser | null | undefined): boolean {
   return (
     esRolGod(user) ||
     esRolAdmin(user) ||
     esRolProfesional(user) ||
-    esRolEntrenado(user)
+    esEntrenadoConSuscripcion(user)
   );
 }
 
 /**
- * Perfil de socio sin plan de entrenamiento (solo videos):
- * SOCIO club sin ENTRENADO/ALUMNO — acceso limitado a tutoriales
+ * Perfil de socio sin plan de entrenamiento (solo videos / tutoriales):
+ * SOCIO club, o rol sin historial de suscripción de entrenamiento.
  */
 export function esPerfilSocioSinPlanEntrenamiento(
   user: RolUser | null | undefined
 ): boolean {
+  if (esEntrenadoConSuscripcion(user)) return false;
   return esRolSocioClub(user) || esRolEntrnadoOff(user);
 }
 

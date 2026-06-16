@@ -45,6 +45,7 @@ import {
 import { useScreenBackground } from '../../hooks/useScreenBackground';
 import Badge from '../../components/common/Badge';
 import EmptyState from '../../components/common/EmptyState';
+import { useNotifications } from '../../hooks/useNotifications';
 
 function puedeMostrarInscripcion(turno: TurnoResponse, inscripto: boolean): boolean {
   return !turno.cancelado && (!turnoSinCupo(turno) || inscripto);
@@ -57,6 +58,7 @@ export default function TurneroScreen() {
   const { canEnrollTurnos, canManageTurnos, isProfesionalUser } = usePermissions();
   const canEnroll = canEnrollTurnos();
   const canManage = canManageTurnos();
+  const { refreshNotifications } = useNotifications();
 
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date());
@@ -137,7 +139,8 @@ export default function TurneroScreen() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadTurnos();
-  }, [loadTurnos]);
+    void refreshNotifications(true);
+  }, [loadTurnos, refreshNotifications]);
 
   const goToToday = () => {
     const today = new Date();

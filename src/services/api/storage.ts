@@ -13,6 +13,13 @@ const KEYS = {
   APPEARANCE_BG_MODE: 'appearance_bg_mode',
   REMEMBER_USER: 'remember_me_user',
   REMEMBER_PASS: 'remember_me_pass',
+  NOTIFICATION_DISMISSED: 'notification_dismissed',
+  NOTIFICATION_TURN_LEAD_MINUTES: 'notification_turn_lead_minutes',
+  NOTIFICATION_MUTED: 'notification_muted',
+  NOTIFICATION_PLAN_TENURE: 'notification_plan_tenure_enabled',
+  QUICK_ACCESS_ROUTES: 'quick_access_routes',
+  NAVIGATION_PREFERENCES: 'navigation_preferences',
+  LOCAL_PROFILE_NICKNAME: 'local_profile_nickname',
 };
 
 export const storage = {

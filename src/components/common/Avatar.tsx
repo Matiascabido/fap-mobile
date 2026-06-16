@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { palette } from '../../constants/colors';
 
 interface AvatarProps {
   nombre?: string;
   apellido?: string;
   size?: number;
+  imageUri?: string | null;
 }
 
 function getInitials(nombre?: string, apellido?: string): string {
@@ -15,9 +16,26 @@ function getInitials(nombre?: string, apellido?: string): string {
   return initials || '?';
 }
 
-function Avatar({ nombre, apellido, size = 40 }: AvatarProps) {
+function Avatar({ nombre, apellido, size = 40, imageUri }: AvatarProps) {
   const initials = getInitials(nombre, apellido);
   const fontSize = size * 0.4;
+
+  if (imageUri) {
+    return (
+      <Image
+        source={{ uri: imageUri }}
+        style={[
+          styles.image,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+          },
+        ]}
+        accessibilityLabel="Foto de perfil"
+      />
+    );
+  }
 
   return (
     <View
@@ -40,6 +58,9 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  image: {
+    backgroundColor: palette.slate200,
   },
   text: {
     color: '#FFFFFF',

@@ -19,6 +19,8 @@ export const ROUTES = {
   METRICAS: 'Metricas',
   TUTORIALES: 'Tutoriales',
   PERFIL: 'Perfil',
+  NOTIFICATIONS: 'Notifications',
+  NOTIFICATION_SETTINGS: 'NotificationSettings',
 };
 
 // Configuración de items del drawer con permisos

@@ -82,6 +82,47 @@ export function blockColorsFromPlan(bloques: unknown[]): string[] {
   return out.length > 0 ? out : [FALLBACK_BLOCK_COLOR];
 }
 
+/** Mezcla todos los colores mate de bloques en un solo tono representativo */
+export function blendBlockColors(colors: string[]): string {
+  if (colors.length === 0) return FALLBACK_BLOCK_COLOR;
+  if (colors.length === 1) return colors[0];
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let count = 0;
+
+  for (const hex of colors) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) continue;
+    r += rgb.r;
+    g += rgb.g;
+    b += rgb.b;
+    count += 1;
+  }
+
+  if (count === 0) return FALLBACK_BLOCK_COLOR;
+  return rgbToHex(Math.round(r / count), Math.round(g / count), Math.round(b / count));
+}
+
+export function planColorPaletteFromBlocks(bloques: unknown[]): {
+  stripeColors: string[];
+  blendedAccent: string;
+} {
+  const stripeColors = blockColorsFromPlan(bloques);
+  return {
+    stripeColors,
+    blendedAccent: blendBlockColors(stripeColors),
+  };
+}
+
+/** Colores para gradiente horizontal (expo-linear-gradient requiere ≥2) */
+export function gradientColorsFromBlocks(colors: string[]): string[] {
+  if (colors.length === 0) return [FALLBACK_BLOCK_COLOR, FALLBACK_BLOCK_COLOR];
+  if (colors.length === 1) return [colors[0], colors[0]];
+  return colors;
+}
+
 export function getPlanBlockColor(index: number): BlockColor {
   return BLOCK_COLORS[index % BLOCK_COLORS.length]!;
 }

@@ -27,6 +27,8 @@ import {
 import { getRolLabel } from '../../utils/sessionRole';
 
 import AppearanceSettings from '../../components/settings/AppearanceSettings';
+import LocalProfileSettings from '../../components/perfil/LocalProfileSettings';
+import { useLocalProfile } from '../../context/LocalProfileContext';
 
 const MEDIO_PAGO_LABELS: Record<string, string> = {
   TRANSFERENCIA: 'Transferencia',
@@ -39,6 +41,7 @@ const MEDIO_PAGO_LABELS: Record<string, string> = {
 export default function PerfilScreen() {
   const { user, logout } = useAuth();
   const { isDark, colors } = useTheme();
+  const { displayName, hasNickname, photoUri } = useLocalProfile();
   const { getPermissionCodes, isProfesionalUser, isAdminUser, isSocioUser, hasPermission } =
     usePermissions();
 
@@ -109,16 +112,34 @@ export default function PerfilScreen() {
     >
       {/* Header de perfil */}
       <View style={styles.profileHeader}>
-        <Avatar nombre={user?.nombre} apellido={user?.apellido} size={88} />
-        <Text style={[styles.profileName, { color: textPrimary }]}>
-          {user?.nombre} {user?.apellido}
-        </Text>
+        <Avatar
+          nombre={user?.nombre}
+          apellido={user?.apellido}
+          size={88}
+          imageUri={photoUri}
+        />
+        <Text style={[styles.profileName, { color: textPrimary }]}>{displayName}</Text>
+        {hasNickname ? (
+          <Text style={[styles.profileLegalName, { color: textSecondary }]}>
+            {user?.nombre} {user?.apellido}
+          </Text>
+        ) : null}
         <Text style={[styles.profileEmail, { color: textSecondary }]}>{user?.mail}</Text>
         <View style={styles.badgeRow}>
           <Badge label={rolLabel} variant="info" />
           {user?.grupo ? <Badge label={user.grupo} variant="neutral" /> : null}
         </View>
       </View>
+
+      <Card style={styles.section}>
+        <LocalProfileSettings
+          textPrimary={textPrimary}
+          textSecondary={textSecondary}
+          borderColor={borderColor}
+          nombre={user?.nombre}
+          apellido={user?.apellido}
+        />
+      </Card>
 
       {/* Datos de la cuenta */}
       <Card style={styles.section}>
@@ -378,6 +399,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 100 },
   profileHeader: { alignItems: 'center', marginBottom: 24 },
   profileName: { fontSize: 22, fontWeight: '700', marginTop: 12 },
+  profileLegalName: { fontSize: 14, marginTop: 4 },
   profileEmail: { fontSize: 14, marginTop: 4 },
   badgeRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   section: { marginBottom: 16 },

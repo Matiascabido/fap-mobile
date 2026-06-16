@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -15,45 +17,39 @@ import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { palette } from '../../constants/colors';
 import { getGreeting, formatLongDate, capitalize } from '../../utils/formatters';
 import { getRolLabel } from '../../utils/sessionRole';
+import { useNotifications } from '../../hooks/useNotifications';
+import { useNavigationPreferences } from '../../context/NavigationPreferencesContext';
+import { useLocalProfile } from '../../context/LocalProfileContext';
 import QuickAccessGrid from '../../components/common/QuickAccessGrid';
-import { buildQuickAccesses } from '../../utils/quickAccesses';
 import { navigateToModule } from '../../utils/navigateModule';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const {
-    hasPermission,
-    isProfesionalUser,
-    isSocioSinPlan,
-    isGodOrAdmin,
-    canManageTurnos,
-    canEnrollTurnos,
-    canManageEvaluaciones,
-  } = usePermissions();
-  const { isDark, colors } = useAppTheme();
+  const { isSocioSinPlan } = usePermissions();
+  const { colors, isDark } = useAppTheme();
+  const { refreshNotifications, isRefreshing } = useNotifications();
+  const { homeItems } = useNavigationPreferences();
+  const { displayName, hasNickname, photoUri } = useLocalProfile();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    void refreshNotifications(true).finally(() => setRefreshing(false));
+  }, [refreshNotifications]);
 
   const bgColor = useScreenBackground();
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
+  const borderColor = isDark ? palette.darkBorder : palette.slate200;
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
-  const borderColor = isDark ? palette.darkBorder : palette.slate200;
 
   const greeting = getGreeting();
   const today = formatLongDate(new Date());
   const rolLabel = getRolLabel(user);
 
   const isSocioSolo = isSocioSinPlan();
-
-  const quickAccesses = buildQuickAccesses({
-    isSocioSolo,
-    isProfesional: isProfesionalUser,
-    isAdmin: isGodOrAdmin(),
-    canManageTurnos: canManageTurnos(),
-    canEnrollTurnos: canEnrollTurnos(),
-    canManageEvaluaciones: canManageEvaluaciones(),
-    hasPermission,
-  });
+  const greetingName = hasNickname ? displayName : user?.nombre ?? 'usuario';
 
   return (
     <ScrollView
@@ -61,33 +57,56 @@ export default function HomeScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing || isRefreshing}
+          onRefresh={onRefresh}
+          colors={[colors.tint]}
+          tintColor={colors.tint}
+        />
+      }
     >
-      {/* Hero card */}
-      <LinearGradient
-        colors={['#0f172a', '#7f1d1d']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.heroCard}
-      >
-        <View style={styles.heroBlob} />
-        <View style={styles.heroBlob2} />
-        <View style={styles.heroContent}>
-          <Text style={styles.heroDate}>{capitalize(today).toUpperCase()}</Text>
-          <Text style={styles.heroGreeting}>
-            {greeting},{' '}
-            <Text style={styles.heroName}>{user?.nombre ?? 'usuario'}</Text>!
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            Desde acá podés acceder a todas las secciones del club.
-          </Text>
-          <View style={styles.rolePill}>
-            <MaterialCommunityIcons name="shield-account" size={14} color="#FFFFFF" />
-            <Text style={styles.roleText}>{rolLabel}</Text>
+      <View style={styles.heroWrap}>
+        {photoUri ? (
+          <View style={styles.photoBannerWrap}>
+            <Image
+              source={{ uri: photoUri }}
+              style={styles.photoBanner}
+              resizeMode="cover"
+              accessibilityLabel="Tu foto de perfil"
+            />
+            <LinearGradient
+              colors={['transparent', 'rgba(15, 23, 42, 0.92)']}
+              style={styles.photoBannerFade}
+            />
           </View>
-        </View>
-      </LinearGradient>
+        ) : null}
 
-      {/* Mensaje contextual para socios club (sin plan) */}
+        <LinearGradient
+          colors={['#0f172a', '#7f1d1d']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.heroCard, photoUri ? styles.heroCardWithPhoto : null]}
+        >
+          <View style={styles.heroBlob} />
+          <View style={styles.heroBlob2} />
+          <View style={styles.heroContent}>
+            <Text style={styles.heroDate}>{capitalize(today).toUpperCase()}</Text>
+            <Text style={styles.heroGreeting}>
+              {greeting},{' '}
+              <Text style={styles.heroName}>{greetingName}</Text>!
+            </Text>
+            <Text style={styles.heroSubtitle}>
+              Personalizá tus accesos desde Más → Personalizar.
+            </Text>
+            <View style={styles.rolePill}>
+              <MaterialCommunityIcons name="shield-account" size={14} color="#FFFFFF" />
+              <Text style={styles.roleText}>{rolLabel}</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
       {isSocioSolo && (
         <View style={[styles.infoBanner, { backgroundColor: `${palette.info}18`, borderColor: `${palette.info}40` }]}>
           <MaterialCommunityIcons name="information" size={18} color={palette.info} />
@@ -97,20 +116,18 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Accesos rápidos */}
-      <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
-        <Text style={[styles.sectionTitle, { color: textPrimary }]}>Accesos rápidos</Text>
-        <Text style={[styles.sectionSubtitle, { color: textSecondary }]}>
-          Navegá directamente a las secciones más usadas
-        </Text>
-
-        <View style={styles.grid}>
+      {homeItems.length > 0 ? (
+        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
+          <Text style={[styles.sectionTitle, { color: textPrimary }]}>Accesos fijados</Text>
+          <Text style={[styles.sectionSubtitle, { color: textSecondary }]}>
+            Secciones que elegiste mostrar en Inicio
+          </Text>
           <QuickAccessGrid
-            items={quickAccesses}
-            onPress={(route) => navigateToModule(navigation, route)}
+            items={homeItems}
+            onPress={(route) => navigateToModule(navigation.getParent() ?? navigation, route)}
           />
         </View>
-      </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -123,7 +140,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 120,
   },
-  heroCard: {
+  heroWrap: {
     borderRadius: 22,
     overflow: 'hidden',
     marginBottom: 16,
@@ -132,6 +149,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
+  },
+  photoBannerWrap: {
+    width: '100%',
+    height: 148,
+    backgroundColor: palette.slate800,
+  },
+  photoBanner: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  photoBannerFade: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroCard: {
+    overflow: 'hidden',
+  },
+  heroCardWithPhoto: {
+    marginTop: -4,
   },
   heroBlob: {
     position: 'absolute',
@@ -223,11 +259,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     marginBottom: 16,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
   },
 });

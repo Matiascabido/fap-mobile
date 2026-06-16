@@ -41,6 +41,31 @@ export function extractYouTubeVideoId(urlOrId?: string | null): string | null {
   return null;
 }
 
+/** Solo enlaces cuyo host sea YouTube (no Vimeo, Drive, etc.). */
+export function isYouTubePageUrl(raw: string): boolean {
+  const u = raw.trim();
+  if (!u) return false;
+  try {
+    const hostname = new URL(u).hostname.toLowerCase();
+    if (hostname === 'youtu.be' || hostname === 'www.youtu.be') return true;
+    if (
+      hostname === 'youtube.com' ||
+      hostname === 'www.youtube.com' ||
+      hostname === 'm.youtube.com'
+    ) {
+      return true;
+    }
+    if (hostname.endsWith('.youtube.com')) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+export function getYouTubeVideoId(url: string): string | null {
+  return extractYouTubeVideoId(url);
+}
+
 export function buildYouTubeEmbedUrl(
   videoId: string,
   origin = getYouTubeEmbedOrigin(),

@@ -16,6 +16,7 @@ interface BuildAccessesParams {
   canManageTurnos: boolean;
   canEnrollTurnos: boolean;
   canManageEvaluaciones: boolean;
+  canViewPlanEntrenamiento: boolean;
   hasPermission: (codigo: string) => boolean;
 }
 
@@ -57,7 +58,7 @@ export function buildQuickAccesses(p: BuildAccessesParams): QuickAccess[] {
     });
   }
 
-  if (p.hasPermission('planes:view')) {
+  if (p.canViewPlanEntrenamiento || p.hasPermission('planes:view')) {
     accesses.push({
       title: 'Planes',
       description: p.isProfesional || p.isAdmin ? 'Creá y gestioná planes' : 'Tu plan de entrenamiento',

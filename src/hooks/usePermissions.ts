@@ -7,6 +7,7 @@ import {
   esRolEntrenado,
   esRolSocioClub,
   esRolEntrnadoOff,
+  esEntrenadoConSuscripcion,
   puedeGestionarTurnosAdministracion,
   puedeInscribirseATurnos,
   puedeVerVistaMesTurnero,
@@ -87,6 +88,7 @@ export function usePermissions() {
   const isEntrenado = () => esRolEntrenado(user);
   const isSocioClub = () => esRolSocioClub(user);
   const isEntrnadoOff = () => esRolEntrnadoOff(user);
+  const isEntrenadoConSuscripcionUser = () => esEntrenadoConSuscripcion(user);
 
   // Alias histórico (compatible con código existente)
   const isAdminUser = esRolGodOAdmin(user);
@@ -110,6 +112,14 @@ export function usePermissions() {
     isAdminUser ||
     isProfesionalUser;
 
+  /** Series, repeticiones y peso: staff o entrenado con suscripción (activa o vencida). */
+  const canEditEjercicioPrescripcion = () =>
+    canManagePlanes() || isEntrenadoConSuscripcionUser();
+
+  /** Ver plan de entrenamiento en la app (JWT o perfil entrenado con suscripción). */
+  const canViewPlanEntrenamiento = () =>
+    hasPermission('planes:view') || isEntrenadoConSuscripcionUser();
+
   const rolLabel = getRolLabel(user);
 
   return {
@@ -126,6 +136,7 @@ export function usePermissions() {
     isEntrenado,
     isSocioClub,
     isEntrnadoOff,
+    isEntrenadoConSuscripcionUser,
     // Role booleans (values - retrocompatibilidad)
     isAdminUser,
     isProfesionalUser,
@@ -141,6 +152,8 @@ export function usePermissions() {
     canManageEvaluaciones,
     canManageSocios,
     canManagePlanes,
+    canEditEjercicioPrescripcion,
+    canViewPlanEntrenamiento,
     rolLabel,
   };
 }

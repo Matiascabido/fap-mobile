@@ -34,6 +34,7 @@ import Avatar from '../../components/common/Avatar';
 import Loader from '../../components/common/Loader';
 import EmptyState from '../../components/common/EmptyState';
 import CrearSuscripcionModal from '../../components/suscripciones/CrearSuscripcionModal';
+import { useNotifications } from '../../hooks/useNotifications';
 
 type Filter = 'todas' | 'vigente' | 'por_vencer' | 'vencida';
 
@@ -60,6 +61,7 @@ export default function SuscripcionesScreen() {
 
   const debouncedSearch = useDebounce(search, 400);
   const canCreate = hasPermission('suscripciones:create');
+  const { refreshNotifications } = useNotifications();
 
   const bgColor = useScreenBackground();
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
@@ -86,7 +88,8 @@ export default function SuscripcionesScreen() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadSuscripciones();
-  }, [loadSuscripciones]);
+    void refreshNotifications(true);
+  }, [loadSuscripciones, refreshNotifications]);
 
   const alertasCount = useMemo(() => {
     return suscripciones.filter((s) => {

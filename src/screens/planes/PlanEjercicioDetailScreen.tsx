@@ -44,14 +44,16 @@ export default function PlanEjercicioDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<Route>();
   const { colors } = useAppTheme();
-  const { canManagePlanes } = usePermissions();
-  const canEdit = canManagePlanes();
+  const { canEditEjercicioPrescripcion } = usePermissions();
+  const canEdit = canEditEjercicioPrescripcion();
   const { ejercicio, bloqueNombre } = route.params;
 
   const nombre = getEjercicioNombre(ejercicio);
   const puedeTenerVideo = ejercicioPuedeTenerVideo(ejercicio);
 
-  const [loadingDetail, setLoadingDetail] = useState(Boolean(ejercicio.id_ejercicio));
+  const [loadingDetail, setLoadingDetail] = useState(() =>
+    Boolean(resolveCatalogEjercicioId(ejercicio))
+  );
   const [display, setDisplay] = useState<Record<string, unknown>>(() =>
     planEjercicioToDisplay(ejercicio)
   );
@@ -79,7 +81,7 @@ export default function PlanEjercicioDetailScreen() {
   }, [navigation, nombre]);
 
   useEffect(() => {
-    const id = ejercicio.id_ejercicio;
+    const id = resolveCatalogEjercicioId(ejercicio, display);
     if (!id) {
       setLoadingDetail(false);
       return;
@@ -88,7 +90,7 @@ export default function PlanEjercicioDetailScreen() {
     let cancelled = false;
     setLoadingDetail(true);
     ejerciciosService
-      .getById(String(id))
+      .getById(id)
       .then((found) => {
         if (cancelled) return;
         setDisplay(planEjercicioToDisplay(ejercicio, found));

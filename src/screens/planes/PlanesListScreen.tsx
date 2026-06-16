@@ -7,16 +7,15 @@ import {
   TextInput,
   TouchableOpacity,
   RefreshControl,
-  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { planesService } from '../../services/api/planes.service';
 import { PlanWithRelations } from '../../types/planes.types';
-import { useAppTheme } from '../../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
+import { useScreenBackground } from '../../hooks/useScreenBackground';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
-import { typography } from '../../theme/iosTheme';
 import { useDebounce } from '../../hooks/useDebounce';
 import PlanListCard from '../../components/planes/PlanListCard';
 import Loader from '../../components/common/Loader';
@@ -26,7 +25,7 @@ type EstadoFilter = 'todos' | 'activos' | 'finalizados';
 
 export default function PlanesListScreen() {
   const navigation = useNavigation<any>();
-  const { colors } = useAppTheme();
+  const { isDark } = useTheme();
   const { canManagePlanes } = usePermissions();
   const canManage = canManagePlanes();
 
@@ -37,6 +36,12 @@ export default function PlanesListScreen() {
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>('todos');
 
   const debouncedSearch = useDebounce(search, 400);
+
+  const bgColor = useScreenBackground();
+  const cardBg = isDark ? palette.darkCard : '#FFFFFF';
+  const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
+  const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
+  const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
 
   const loadPlanes = useCallback(async () => {
     try {
@@ -108,97 +113,55 @@ export default function PlanesListScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.groupedBackground }]}>
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
+      <View style={styles.header}>
+        <View style={[styles.searchBar, { backgroundColor: cardBg, borderColor }]}>
+          <MaterialCommunityIcons name="magnify" size={20} color={textSecondary} />
+          <TextInput
+            placeholder="Buscar por nombre, objetivo o asignación"
+            placeholderTextColor={textSecondary}
+            value={search}
+            onChangeText={setSearch}
+            style={[styles.searchInput, { color: textPrimary }]}
+            autoCapitalize="none"
+          />
+          {search.length > 0 ? (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <MaterialCommunityIcons name="close-circle" size={18} color={textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        <View style={styles.filters}>
+          {(['todos', 'activos', 'finalizados'] as EstadoFilter[]).map((filter) => {
+            const isActive = estadoFilter === filter;
+            return (
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isActive ? palette.primary : cardBg,
+                    borderColor: isActive ? palette.primary : borderColor,
+                  },
+                ]}
+                onPress={() => setEstadoFilter(filter)}
+              >
+                <Text style={[styles.filterText, { color: isActive ? '#FFFFFF' : textSecondary }]}>
+                  {filterLabels[filter]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
       <FlatList
         data={filteredPlanes}
         renderItem={renderPlan}
         keyExtractor={(item) => item.plan.id}
         contentContainerStyle={styles.listContent}
         contentInsetAdjustmentBehavior="automatic"
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <View style={styles.hero}>
-              <Text style={[styles.heroEyebrow, { color: palette.primary }]}>Catálogo</Text>
-              <Text style={[styles.heroTitle, typography.title2, { color: colors.label }]}>
-                Gestión de planes
-              </Text>
-              <Text style={[styles.heroSub, { color: colors.secondaryLabel }]}>
-                Rutinas, bloques y entrenamientos con una vista clara de cada plan.
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.searchBar,
-                {
-                  backgroundColor: colors.secondaryGroupedBackground,
-                  borderColor: colors.separator,
-                },
-              ]}
-            >
-              <Ionicons name="search" size={18} color={colors.secondaryLabel} />
-              <TextInput
-                placeholder="Buscar por nombre, objetivo, tipo o asignación…"
-                placeholderTextColor={colors.tertiaryLabel}
-                value={search}
-                onChangeText={setSearch}
-                style={[styles.searchInput, typography.body, { color: colors.label }]}
-                autoCapitalize="none"
-                autoCorrect={false}
-                clearButtonMode="while-editing"
-              />
-              {search.length > 0 && Platform.OS === 'android' ? (
-                <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
-                  <Ionicons name="close-circle" size={18} color={colors.tertiaryLabel} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
-
-            <View style={[styles.segmented, { backgroundColor: colors.tertiaryGroupedBackground }]}>
-              {(['todos', 'activos', 'finalizados'] as EstadoFilter[]).map((filter) => {
-                const isActive = estadoFilter === filter;
-                return (
-                  <TouchableOpacity
-                    key={filter}
-                    style={[
-                      styles.segment,
-                      isActive && {
-                        backgroundColor: palette.primary,
-                        ...Platform.select({
-                          ios: {
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 1 },
-                            shadowOpacity: 0.12,
-                            shadowRadius: 2,
-                          },
-                          android: { elevation: 2 },
-                        }),
-                      },
-                    ]}
-                    onPress={() => setEstadoFilter(filter)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentText,
-                        {
-                          color: isActive ? '#FFFFFF' : colors.secondaryLabel,
-                          fontWeight: isActive ? '600' : '500',
-                        },
-                      ]}
-                    >
-                      {filterLabels[filter]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={[styles.count, typography.footnote, { color: colors.secondaryLabel }]}>
-              {filteredPlanes.length} plan{filteredPlanes.length === 1 ? '' : 'es'}
-            </Text>
-          </View>
-        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -220,81 +183,36 @@ export default function PlanesListScreen() {
         initialNumToRender={10}
       />
 
-      {canManage && (
+      {canManage ? (
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.85}
           onPress={() => navigation.navigate('PlanForm', {})}
           accessibilityLabel="Crear plan"
         >
-          <Ionicons name="add" size={28} color="#FFFFFF" />
+          <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
         </TouchableOpacity>
-      )}
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-    flexGrow: 1,
-  },
-  header: {
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  hero: {
-    marginBottom: 16,
-  },
-  heroEyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 4,
-  },
-  heroTitle: {
-    marginBottom: 6,
-  },
-  heroSub: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
+  header: { paddingHorizontal: 16, paddingTop: 12 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    height: 46,
-    marginBottom: 12,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  segmented: {
-    flexDirection: 'row',
     borderRadius: 12,
-    padding: 3,
-    marginBottom: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    height: 44,
   },
-  segment: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  segmentText: {
-    fontSize: 13,
-  },
-  count: {
-    marginBottom: 8,
-    marginLeft: 4,
-  },
+  searchInput: { flex: 1, fontSize: 15, marginLeft: 8 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12, gap: 8 },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  filterText: { fontSize: 13, fontWeight: '600' },
+  listContent: { padding: 16, paddingBottom: 100, flexGrow: 1 },
   fab: {
     position: 'absolute',
     right: 20,

@@ -19,11 +19,32 @@ export type TutorialesStackParamList = {
   TutorialesMain: undefined;
 };
 
+export type TurneroStackParamList = {
+  TurneroMain: undefined;
+};
+
+export type MetricasStackParamList = {
+  MetricasMain: undefined;
+};
+
+export type SuscripcionesStackParamList = {
+  SuscripcionesMain: undefined;
+};
+
+export type EvaluacionesStackParamList = {
+  EvaluacionesMain: undefined;
+};
+
 // Main Tab Navigator
 export type MainTabParamList = {
   Home: NavigatorScreenParams<HomeStackParamList> | undefined;
   Planes: NavigatorScreenParams<PlanesStackParamList> | undefined;
   Tutoriales: NavigatorScreenParams<TutorialesStackParamList> | undefined;
+  Turnero: NavigatorScreenParams<TurneroStackParamList> | undefined;
+  Metricas: NavigatorScreenParams<MetricasStackParamList> | undefined;
+  Socios: NavigatorScreenParams<SociosStackParamList> | undefined;
+  Suscripciones: NavigatorScreenParams<SuscripcionesStackParamList> | undefined;
+  Evaluaciones: NavigatorScreenParams<EvaluacionesStackParamList> | undefined;
   More: NavigatorScreenParams<MoreStackParamList> | undefined;
 };
 
@@ -38,6 +59,8 @@ export type MoreStackParamList = {
   Evaluaciones: undefined;
   Metricas: undefined;
   Perfil: undefined;
+  Notifications: undefined;
+  NotificationSettings: undefined;
 };
 
 // Socios Stack

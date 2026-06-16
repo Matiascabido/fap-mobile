@@ -32,15 +32,35 @@ import { useTheme } from '../../context/ThemeContext';
 import { palette } from '../../constants/colors';
 import Button from '../common/Button';
 
+export interface NuevaEvaluacionPrefill {
+  socioId?: string;
+  grupoId?: string;
+  pruebaId?: string;
+  fecha?: string;
+  freshStart?: boolean;
+}
+
 interface Props {
+  prefill?: NuevaEvaluacionPrefill | null;
+  onPrefillConsumed?: () => void;
+  selectedSocio?: Socio | null;
+  onSelectSocio?: (s: Socio) => void;
   onRegistroSaved?: () => void;
 }
 
-export default function NuevaEvaluacionFlow({ onRegistroSaved }: Props) {
+export default function NuevaEvaluacionFlow({
+  prefill,
+  onPrefillConsumed,
+  selectedSocio: selectedSocioProp,
+  onSelectSocio: onSelectSocioProp,
+  onRegistroSaved,
+}: Props) {
   const { isDark } = useTheme();
   const [catalogo, setCatalogo] = useState<EvaluacionGrupo[]>([]);
   const [catalogoLoading, setCatalogoLoading] = useState(true);
-  const [selectedSocio, setSelectedSocio] = useState<Socio | null>(null);
+  const [selectedSocioInternal, setSelectedSocioInternal] = useState<Socio | null>(null);
+  const selectedSocio = selectedSocioProp ?? selectedSocioInternal;
+  const setSelectedSocio = onSelectSocioProp ?? setSelectedSocioInternal;
   const [grupoId, setGrupoId] = useState('');
   const [fechaEvaluacion] = useState(fechaEvaluacionHoy());
   const [activePruebaId, setActivePruebaId] = useState('');
@@ -100,6 +120,32 @@ export default function NuevaEvaluacionFlow({ onRegistroSaved }: Props) {
       setGrupoId(last);
     }
   }, [catalogo]);
+
+  useEffect(() => {
+    if (!prefill || catalogo.length === 0) return;
+
+    if (prefill.grupoId && catalogo.some((g) => g.id === prefill.grupoId)) {
+      if (prefill.freshStart && prefill.socioId && prefill.grupoId) {
+        const grupo = catalogo.find((g) => g.id === prefill.grupoId);
+        if (grupo) {
+          const pruebaIds = flattenPruebasFromGrupo(grupo).map((p) => p.id);
+          clearEvaluacionSessionForGrupo(
+            prefill.socioId,
+            prefill.fecha ?? fechaEvaluacionHoy(),
+            prefill.grupoId,
+            pruebaIds
+          );
+        }
+      }
+      setGrupoId(prefill.grupoId);
+    }
+
+    if (prefill.pruebaId) {
+      setActivePruebaId(prefill.pruebaId);
+    }
+
+    onPrefillConsumed?.();
+  }, [prefill, catalogo, onPrefillConsumed]);
 
   useEffect(() => {
     if (!grupo || pruebas.length === 0) return;

@@ -10,10 +10,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
 import { useAuth } from '../../hooks/useAuth';
 import { palette } from '../../constants/colors';
 import { storage, STORAGE_KEYS } from '../../services/api/storage';
@@ -70,12 +70,17 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={['#0f172a', '#1e293b', '#dc2626']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.root}
-    >
+    <View style={styles.root}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={['#0F172A', '#1E293B', '#172554']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={[styles.orb, styles.orbRed]} />
+      <View style={[styles.orb, styles.orbBlue]} />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -83,41 +88,58 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+            {
+              paddingTop: insets.top + 16,
+              paddingBottom: insets.bottom + 24,
+            },
           ]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
+          <View style={styles.hero}>
+            <View style={styles.logoOuter}>
+              <LinearGradient
+                colors={[palette.primary, palette.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.logoRing}
+              >
+                <View style={styles.logoInner}>
+                  <MaterialCommunityIcons name="dumbbell" size={40} color={palette.primary} />
+                </View>
+              </LinearGradient>
+            </View>
+            <Text style={styles.brandTitle}>FAP</Text>
+            <Text style={styles.brandSubtitle}>Funcional Alta Performance</Text>
+            <Text style={styles.heroHint}>Tu entrenamiento, en un solo lugar</Text>
+          </View>
+
           <View style={styles.card}>
-            {loading && (
+            {loading ? (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={palette.primary} />
                 <Text style={styles.loadingText}>Iniciando sesión…</Text>
               </View>
-            )}
+            ) : null}
 
-            <View style={styles.logoContainer}>
-              <View style={styles.logoCircle}>
-                <Text style={styles.logoText}>FAP</Text>
-              </View>
-            </View>
-
-            <Text style={styles.title}>Bienvenidos</Text>
-            <Text style={styles.subtitle}>Ingresá tus credenciales para continuar</Text>
+            <Text style={styles.cardTitle}>Bienvenidos</Text>
+            <Text style={styles.cardSubtitle}>Ingresá tus credenciales para continuar</Text>
 
             <View style={styles.form}>
               <Input
-                label="Correo electrónico"
-                placeholder="Ingresá tu correo"
+                label="Usuario o correo"
+                placeholder="Ingresá tu usuario"
                 value={usuario}
                 onChangeText={(text) => {
                   setUsuario(text);
                   if (error) setError('');
                 }}
-                icon="account"
+                icon="account-outline"
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
                 editable={!loading}
+                surface="light"
               />
 
               <Input
@@ -128,64 +150,162 @@ export default function LoginScreen() {
                   setPassword(text);
                   if (error) setError('');
                 }}
-                icon="lock"
+                icon="lock-outline"
                 isPassword
                 editable={!loading}
+                surface="light"
               />
 
               <TouchableOpacity
                 style={styles.rememberContainer}
                 onPress={() => setRemember((prev) => !prev)}
                 disabled={loading}
+                activeOpacity={0.75}
               >
-                <MaterialCommunityIcons
-                  name={remember ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                  size={22}
-                  color={remember ? palette.primary : palette.slate400}
-                />
-                <Text style={styles.rememberText}>Recordarme</Text>
+                <View
+                  style={[
+                    styles.rememberCheck,
+                    remember && styles.rememberCheckActive,
+                  ]}
+                >
+                  {remember ? (
+                    <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" />
+                  ) : null}
+                </View>
+                <Text style={styles.rememberText}>Recordarme en este dispositivo</Text>
               </TouchableOpacity>
 
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {error ? (
+                <View style={styles.errorBanner}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={18} color={palette.error} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
 
-              <Button
-                title="Ingresar"
+              <TouchableOpacity
                 onPress={handleLogin}
-                loading={loading}
                 disabled={loading}
-                style={styles.loginButton}
-              />
+                activeOpacity={0.85}
+                style={styles.loginButtonWrap}
+              >
+                <LinearGradient
+                  colors={
+                    loading
+                      ? [palette.slate400, palette.slate500]
+                      : [palette.primary, '#B91C1C']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.loginGradient}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <View style={styles.loginButtonContent}>
+                      <Text style={styles.loginButtonText}>Ingresar</Text>
+                      <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" />
+                    </View>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           </View>
+
+          <Text style={styles.footer}>Acceso exclusivo para socios y staff del club</Text>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: palette.slate900,
   },
   flex: {
     flex: 1,
   },
+  orb: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  orbRed: {
+    width: 280,
+    height: 280,
+    top: -80,
+    right: -100,
+    backgroundColor: palette.primary,
+    opacity: 0.14,
+  },
+  orbBlue: {
+    width: 220,
+    height: 220,
+    bottom: 120,
+    left: -90,
+    backgroundColor: '#3B82F6',
+    opacity: 0.1,
+  },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: 20,
   },
-  card: {
-    borderRadius: 24,
-    paddingVertical: 40,
-    paddingHorizontal: 32,
+  hero: {
     alignItems: 'center',
+    paddingBottom: 8,
+  },
+  logoOuter: {
+    marginBottom: 16,
+  },
+  logoRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    padding: 3,
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  logoInner: {
+    flex: 1,
+    borderRadius: 45,
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 4,
+  },
+  brandSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.82)',
+    letterSpacing: 0.3,
+  },
+  heroHint: {
+    marginTop: 8,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.55)',
+  },
+  card: {
+    marginTop: 28,
+    borderRadius: 28,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.2)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.22,
+    shadowRadius: 28,
+    elevation: 14,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -194,50 +314,30 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 10,
-    borderRadius: 24,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.94)',
   },
   loadingText: {
     fontSize: 14,
     fontWeight: '700',
     color: palette.slate500,
   },
-  logoContainer: {
-    marginBottom: 20,
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: palette.slate900,
+    textAlign: 'center',
   },
-  logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: palette.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: palette.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: palette.primary,
-    marginBottom: 6,
-  },
-  subtitle: {
+  cardSubtitle: {
     fontSize: 14,
     color: palette.slate500,
-    marginBottom: 24,
+    marginTop: 6,
+    marginBottom: 20,
     textAlign: 'center',
+    lineHeight: 20,
   },
   form: {
     width: '100%',
@@ -246,19 +346,84 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: palette.slate50,
+  },
+  rememberCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: palette.slate300,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  rememberCheckActive: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primary,
   },
   rememberText: {
+    flex: 1,
     fontSize: 14,
-    marginLeft: 8,
-    color: palette.slate500,
+    marginLeft: 10,
+    color: palette.slate600,
+    fontWeight: '500',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
   errorText: {
-    color: palette.error,
+    flex: 1,
+    color: '#B91C1C',
     fontSize: 13,
-    marginBottom: 16,
-    textAlign: 'center',
+    lineHeight: 18,
+    fontWeight: '500',
   },
-  loginButton: {
+  loginButtonWrap: {
     marginTop: 4,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  loginGradient: {
+    minHeight: 52,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loginButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  footer: {
+    marginTop: 20,
+    textAlign: 'center',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.45)',
+    lineHeight: 18,
+    paddingHorizontal: 12,
   },
 });

@@ -112,7 +112,7 @@ export const ejerciciosService = {
     return apiFetch(`/ejercicios/${encodeURIComponent(ejercicioId)}`, {
       method: 'PATCH',
       data: body,
-    });
+    }, { suppressGlobalAlert: true });
   },
 
   async getById(ejercicioId: string): Promise<EjercicioCatalogo | null> {

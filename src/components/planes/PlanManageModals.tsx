@@ -21,9 +21,10 @@ import {
   referencePlanBloqueId,
 } from '../../utils/planBloques';
 import { EjercicioModeloPicker } from './EjercicioModeloPicker';
+import BloqueNombreField from './BloqueNombreField';
+import { DEFAULT_BLOQUE_COLOR } from '../../utils/planBloqueTitulos';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const COLORES = ['#DC2626', '#2563EB', '#16A34A', '#CA8A04', '#9333EA', '#0891B2'];
 
 interface AddBloqueModalProps {
   visible: boolean;
@@ -36,7 +37,7 @@ export function AddBloqueModal({ visible, planId, onClose, onSaved }: AddBloqueM
   const { isDark } = useTheme();
   const [step, setStep] = useState<'bloque' | 'ejercicio'>('bloque');
   const [nombre, setNombre] = useState('');
-  const [color, setColor] = useState(COLORES[0]);
+  const [color, setColor] = useState(DEFAULT_BLOQUE_COLOR);
   const [diaSemana, setDiaSemana] = useState(0);
   const [loading, setLoading] = useState(false);
   const [planBloqueId, setPlanBloqueId] = useState('');
@@ -50,7 +51,7 @@ export function AddBloqueModal({ visible, planId, onClose, onSaved }: AddBloqueM
   const reset = () => {
     setStep('bloque');
     setNombre('');
-    setColor(COLORES[0]);
+    setColor(DEFAULT_BLOQUE_COLOR);
     setDiaSemana(0);
     setPlanBloqueId('');
     setBloqueNombre('');
@@ -152,13 +153,14 @@ export function AddBloqueModal({ visible, planId, onClose, onSaved }: AddBloqueM
             <>
               <Text style={[styles.sheetTitle, { color: textPrimary }]}>Nuevo bloque</Text>
 
-              <Text style={[styles.label, { color: textSecondary }]}>Nombre *</Text>
-              <TextInput
-                style={[styles.input, { borderColor, color: textPrimary }]}
-                value={nombre}
-                onChangeText={setNombre}
-                placeholder="Ej: Piernas"
-                placeholderTextColor={textSecondary}
+              <BloqueNombreField
+                nombre={nombre}
+                color={color}
+                onNombreChange={setNombre}
+                onColorChange={setColor}
+                textPrimary={textPrimary}
+                textSecondary={textSecondary}
+                borderColor={borderColor}
               />
 
               <Text style={[styles.label, { color: textSecondary }]}>Día</Text>
@@ -179,17 +181,6 @@ export function AddBloqueModal({ visible, planId, onClose, onSaved }: AddBloqueM
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-
-              <Text style={[styles.label, { color: textSecondary }]}>Color</Text>
-              <View style={styles.colorsRow}>
-                {COLORES.map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    style={[styles.colorDot, { backgroundColor: c }, color === c && styles.colorDotSel]}
-                    onPress={() => setColor(c)}
-                  />
-                ))}
-              </View>
 
               <View style={styles.footer}>
                 <TouchableOpacity onPress={handleClose} disabled={loading}>
@@ -293,9 +284,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginRight: 8,
   },
-  colorsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  colorDot: { width: 28, height: 28, borderRadius: 14 },
-  colorDotSel: { borderWidth: 3, borderColor: '#0f172a' },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',

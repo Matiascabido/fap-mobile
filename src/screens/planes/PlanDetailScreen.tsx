@@ -25,6 +25,11 @@ import EmptyState from '../../components/common/EmptyState';
 import { normalizeBloques, getEjercicioNombre, filterListableEjercicios, referencePlanBloqueId } from '../../utils/planBloques';
 import { planEjercicioToDisplay } from '../../utils/planEjercicioDisplay';
 import { compactStatsFromDisplay } from '../../utils/planExerciseDetailRows';
+import {
+  planAsignacionDisplayText,
+  primaryAsignacion,
+  resolvePlanAsignacionViewer,
+} from '../../utils/planAsignacionDisplay';
 import { resolveBlockColor } from '../../utils/planBlockColors';
 import {
   resolveBloquesAgrupados,
@@ -33,6 +38,11 @@ import {
   planMostrarAgrupacionPorDia,
 } from '../../utils/planDiasSemana';
 import { hapticSelection } from '../../utils/haptics';
+import {
+  HeaderActions,
+  HeaderIconButton,
+} from '../../components/navigation/HeaderIconButton';
+import NotificationBellButton from '../../components/navigation/NotificationBellButton';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -242,7 +252,7 @@ export default function PlanDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<PlanDetailRouteProp>();
   const { colors } = useAppTheme();
-  const { canManagePlanes } = usePermissions();
+  const { canManagePlanes, isGodOrAdmin, isProfesionalUser } = usePermissions();
 
   const { planId } = route.params;
 
@@ -281,23 +291,26 @@ export default function PlanDetailScreen() {
       headerTransparent: false,
       headerRight: canManage
         ? () => (
-            <TouchableOpacity
-              onPress={() =>
-                navigation.navigate('PlanForm', {
-                  planId: plan.id,
-                  initialNombre: plan.nombre_plan,
-                  initialDescripcion: plan.descripcion ?? '',
-                  initialSemanas: plan.semanas,
-                  initialObjetivo: plan.objetivo_semanal ?? '',
-                  initialObservaciones: plan.observaciones ?? '',
-                  initialNumero: plan.numero,
-                  initialTipoPlanId: plan.id_tipo_plan ?? plan.tipo_plan?.id ?? '',
-                })
-              }
-              style={{ marginRight: 8, padding: 4 }}
-            >
-              <Ionicons name="create-outline" size={22} color={colors.tint} />
-            </TouchableOpacity>
+            <HeaderActions>
+              <HeaderIconButton
+                onPress={() =>
+                  navigation.navigate('PlanForm', {
+                    planId: plan.id,
+                    initialNombre: plan.nombre_plan,
+                    initialDescripcion: plan.descripcion ?? '',
+                    initialSemanas: plan.semanas,
+                    initialObjetivo: plan.objetivo_semanal ?? '',
+                    initialObservaciones: plan.observaciones ?? '',
+                    initialNumero: plan.numero,
+                    initialTipoPlanId: plan.id_tipo_plan ?? plan.tipo_plan?.id ?? '',
+                  })
+                }
+                accessibilityLabel="Editar plan"
+              >
+                <Ionicons name="create-outline" size={22} color={colors.tint} />
+              </HeaderIconButton>
+              <NotificationBellButton />
+            </HeaderActions>
           )
         : undefined,
     });
@@ -353,6 +366,17 @@ export default function PlanDetailScreen() {
     [bloques]
   );
 
+  const asignacionViewer = useMemo(
+    () => resolvePlanAsignacionViewer(isGodOrAdmin(), isProfesionalUser),
+    [isGodOrAdmin, isProfesionalUser]
+  );
+
+  const asignacionLine = useMemo(() => {
+    if (!planData) return null;
+    const asignacion = primaryAsignacion(planData) ?? planData.asignaciones?.[0];
+    return planAsignacionDisplayText(asignacion, asignacionViewer);
+  }, [planData, asignacionViewer]);
+
   if (loading) {
     return <Loader fullscreen message="Cargando plan..." />;
   }
@@ -366,7 +390,6 @@ export default function PlanDetailScreen() {
   }
 
   const plan = planData.plan;
-  const asignacion = planData.asignaciones?.[0];
   const isActive = planData.activo ?? planData.asignaciones?.some((a) => a.activo) ?? false;
   const freq =
     plan.numero != null && String(plan.numero).trim() !== '' ? String(plan.numero).trim() : null;
@@ -405,11 +428,11 @@ export default function PlanDetailScreen() {
               </View>
             ) : null}
           </View>
-          {asignacion?.nombre_socio ? (
+          {asignacionLine ? (
             <View style={styles.heroSocioRow}>
               <Ionicons name="person-outline" size={14} color="rgba(255,255,255,0.75)" />
-              <Text style={styles.heroSocioText} numberOfLines={1}>
-                {asignacion.nombre_socio}
+              <Text style={styles.heroSocioText} numberOfLines={2}>
+                {asignacionLine}
               </Text>
             </View>
           ) : null}

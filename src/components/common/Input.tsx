@@ -16,6 +16,8 @@ interface InputProps extends TextInputProps {
   error?: string;
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
   isPassword?: boolean;
+  /** Fuerza estilos claros (p. ej. login sobre card blanca con tema oscuro activo). */
+  surface?: 'default' | 'light';
 }
 
 export default function Input({
@@ -23,25 +25,27 @@ export default function Input({
   error,
   icon,
   isPassword = false,
+  surface = 'default',
   value,
   onChangeText,
   ...rest
 }: InputProps) {
   const { isDark } = useTheme();
+  const useLightSurface = surface === 'light' || !isDark;
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const textColor = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
-  const placeholderColor = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
-  const bgColor = isDark ? palette.darkBg : '#FFFFFF';
+  const textColor = useLightSurface ? palette.lightTextPrimary : palette.darkTextPrimary;
+  const placeholderColor = useLightSurface ? palette.lightTextSecondary : palette.darkTextSecondary;
+  const bgColor = useLightSurface ? palette.slate50 : palette.darkBg;
 
   const borderColor = error
     ? palette.error
     : isFocused
     ? palette.primary
-    : isDark
-    ? palette.darkBorder
-    : palette.lightBorder;
+    : useLightSurface
+    ? palette.lightBorder
+    : palette.darkBorder;
 
   return (
     <View style={styles.container}>

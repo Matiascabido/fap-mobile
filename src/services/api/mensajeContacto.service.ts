@@ -1,11 +1,5 @@
 import { apiFetch } from './http';
-
-export interface MensajeContactoDTO {
-  nombre?: string;
-  email?: string;
-  telefono?: string;
-  mensaje: string;
-}
+import type { MensajeContactoDTO } from '../../types/mensajes.types';
 
 /** Mock activo: no llama al backend real */
 const MENSAJE_CONTACTO_MOCK = true;

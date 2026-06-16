@@ -1,7 +1,8 @@
 import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StackActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   MainTabParamList,
@@ -10,11 +11,22 @@ import {
   MoreStackParamList,
   HomeStackParamList,
   TutorialesStackParamList,
+  TurneroStackParamList,
+  MetricasStackParamList,
+  SuscripcionesStackParamList,
+  EvaluacionesStackParamList,
 } from './types';
 import { ROUTES } from '../constants/navigation';
+import {
+  TAB_MODULE_ICONS,
+  TAB_MODULE_TITLES,
+  isMainTabModuleRoute,
+  type MainTabModuleRoute,
+} from '../constants/navigationModules';
 import { useAppTheme } from '../context/ThemeContext';
-import { usePermissions } from '../hooks/usePermissions';
+import { useNavigationPreferences } from '../context/NavigationPreferencesContext';
 import type { AppThemeTokens } from '../theme/iosTheme';
+import { palette } from '../constants/colors';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import SociosListScreen from '../screens/socios/SociosListScreen';
@@ -31,10 +43,22 @@ import MetricasScreen from '../screens/metricas/MetricasScreen';
 import TutorialesScreen from '../screens/tutoriales/TutorialesScreen';
 import PerfilScreen from '../screens/perfil/PerfilScreen';
 import MoreScreen from '../screens/more/MoreScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
+import NotificationSettingsScreen from '../screens/more/NotificationSettingsScreen';
+import NotificationBellButton from '../components/navigation/NotificationBellButton';
+import {
+  HeaderActions,
+  headerLeftContainerStyle,
+  headerSideContainerStyle,
+} from '../components/navigation/HeaderIconButton';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const TutorialesStack = createNativeStackNavigator<TutorialesStackParamList>();
+const TurneroStack = createNativeStackNavigator<TurneroStackParamList>();
+const MetricasStack = createNativeStackNavigator<MetricasStackParamList>();
+const SuscripcionesStack = createNativeStackNavigator<SuscripcionesStackParamList>();
+const EvaluacionesStack = createNativeStackNavigator<EvaluacionesStackParamList>();
 const SociosStack = createNativeStackNavigator<SociosStackParamList>();
 const PlanesStack = createNativeStackNavigator<PlanesStackParamList>();
 const MoreStack = createNativeStackNavigator<MoreStackParamList>();
@@ -47,6 +71,14 @@ function stackScreenOptions(colors: AppThemeTokens) {
     headerTitleStyle: { fontWeight: '600' as const },
     headerShadowVisible: false,
     contentStyle: { backgroundColor: screenBg },
+    headerRightContainerStyle: headerSideContainerStyle,
+    headerLeftContainerStyle: headerLeftContainerStyle,
+    headerBackButtonDisplayMode: 'minimal' as const,
+    headerRight: () => (
+      <HeaderActions>
+        <NotificationBellButton />
+      </HeaderActions>
+    ),
     ...(Platform.OS === 'ios' ? { headerBlurEffect: 'regular' as const } : {}),
   };
 }
@@ -74,6 +106,58 @@ function TutorialesNavigator() {
         options={{ title: 'Tutoriales' }}
       />
     </TutorialesStack.Navigator>
+  );
+}
+
+function TurneroNavigator() {
+  const { colors } = useAppTheme();
+  return (
+    <TurneroStack.Navigator screenOptions={stackScreenOptions(colors)}>
+      <TurneroStack.Screen
+        name="TurneroMain"
+        component={TurneroScreen}
+        options={{ title: 'Turnero' }}
+      />
+    </TurneroStack.Navigator>
+  );
+}
+
+function MetricasNavigator() {
+  const { colors } = useAppTheme();
+  return (
+    <MetricasStack.Navigator screenOptions={stackScreenOptions(colors)}>
+      <MetricasStack.Screen
+        name="MetricasMain"
+        component={MetricasScreen}
+        options={{ title: 'Métricas' }}
+      />
+    </MetricasStack.Navigator>
+  );
+}
+
+function SuscripcionesNavigator() {
+  const { colors } = useAppTheme();
+  return (
+    <SuscripcionesStack.Navigator screenOptions={stackScreenOptions(colors)}>
+      <SuscripcionesStack.Screen
+        name="SuscripcionesMain"
+        component={SuscripcionesScreen}
+        options={{ title: 'Suscripciones' }}
+      />
+    </SuscripcionesStack.Navigator>
+  );
+}
+
+function EvaluacionesNavigator() {
+  const { colors } = useAppTheme();
+  return (
+    <EvaluacionesStack.Navigator screenOptions={stackScreenOptions(colors)}>
+      <EvaluacionesStack.Screen
+        name="EvaluacionesMain"
+        component={EvaluacionesScreen}
+        options={{ title: 'Evaluaciones' }}
+      />
+    </EvaluacionesStack.Navigator>
   );
 }
 
@@ -112,6 +196,16 @@ function PlanesNavigator() {
   );
 }
 
+const TAB_NAVIGATORS: Record<MainTabModuleRoute, React.ComponentType> = {
+  Planes: PlanesNavigator,
+  Tutoriales: TutorialesNavigator,
+  Turnero: TurneroNavigator,
+  Metricas: MetricasNavigator,
+  Socios: SociosNavigator,
+  Suscripciones: SuscripcionesNavigator,
+  Evaluaciones: EvaluacionesNavigator,
+};
+
 function MoreNavigator() {
   const { colors } = useAppTheme();
   return (
@@ -139,16 +233,46 @@ function MoreNavigator() {
       />
       <MoreStack.Screen name={ROUTES.METRICAS as 'Metricas'} component={MetricasScreen} options={{ title: 'Métricas' }} />
       <MoreStack.Screen name={ROUTES.PERFIL as 'Perfil'} component={PerfilScreen} options={{ title: 'Mi perfil' }} />
+      <MoreStack.Screen
+        name={ROUTES.NOTIFICATIONS as 'Notifications'}
+        component={NotificationsScreen}
+        options={{ title: 'Notificaciones', headerRight: () => null }}
+      />
+      <MoreStack.Screen
+        name={ROUTES.NOTIFICATION_SETTINGS as 'NotificationSettings'}
+        component={NotificationSettingsScreen}
+        options={{ title: 'Configuración', headerRight: () => null }}
+      />
     </MoreStack.Navigator>
   );
 }
 
+function tabBarIcon(routeName: string, color: string, size: number) {
+  if (routeName === ROUTES.HOME) {
+    return <Ionicons name="home-outline" size={size} color={color} />;
+  }
+  if (routeName === 'More') {
+    return <Ionicons name="ellipsis-horizontal-circle-outline" size={size} color={color} />;
+  }
+  if (isMainTabModuleRoute(routeName)) {
+    return <Ionicons name={TAB_MODULE_ICONS[routeName]} size={size} color={color} />;
+  }
+  return <Ionicons name="ellipse-outline" size={size} color={color} />;
+}
+
 export default function MainNavigator() {
   const { colors } = useAppTheme();
-  const { hasPermission } = usePermissions();
+  const { tabRoutes, loading } = useNavigationPreferences();
 
-  const showPlanes = hasPermission('planes:view');
-  const showTutoriales = hasPermission('tutoriales:view');
+  if (loading) {
+    return (
+      <View style={[styles.loading, { backgroundColor: colors.groupedBackground }]}>
+        <ActivityIndicator color={palette.primary} />
+      </View>
+    );
+  }
+
+  const dynamicTabs = tabRoutes.filter(isMainTabModuleRoute);
 
   return (
     <Tab.Navigator
@@ -162,34 +286,36 @@ export default function MainNavigator() {
           borderTopWidth: StyleSheet.hairlineWidth,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarIcon: ({ color, size }) => {
-          const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-            [ROUTES.HOME]: 'home-outline',
-            [ROUTES.PLANES]: 'barbell-outline',
-            [ROUTES.TUTORIALES]: 'play-circle-outline',
-            More: 'ellipsis-horizontal-circle-outline',
-          };
-          return <Ionicons name={icons[route.name] || 'ellipse-outline'} size={size} color={color} />;
-        },
+        tabBarIcon: ({ color, size }) => tabBarIcon(route.name, color, size),
       })}
     >
       <Tab.Screen name={ROUTES.HOME as 'Home'} component={HomeNavigator} options={{ title: 'Inicio' }} />
-      {showPlanes ? (
-        <Tab.Screen name={ROUTES.PLANES as 'Planes'} component={PlanesNavigator} options={{ title: 'Planes' }} />
-      ) : null}
-      {showTutoriales ? (
+      {dynamicTabs.map((route) => (
         <Tab.Screen
-          name={ROUTES.TUTORIALES as 'Tutoriales'}
-          component={TutorialesNavigator}
-          options={{ title: 'Tutoriales' }}
+          key={route}
+          name={route}
+          component={TAB_NAVIGATORS[route]}
+          options={{ title: TAB_MODULE_TITLES[route] }}
         />
-      ) : null}
+      ))}
       <Tab.Screen
         name={'More' as 'More'}
         component={MoreNavigator}
         options={{ title: 'Más' }}
         listeners={({ navigation }) => ({
-          tabPress: () => {
+          tabPress: (e) => {
+            e.preventDefault();
+            const state = navigation.getState();
+            const moreRoute = state.routes.find((r) => r.name === 'More');
+            const stackIndex = moreRoute?.state?.index ?? 0;
+
+            if (stackIndex > 0 && moreRoute?.state?.key) {
+              navigation.dispatch({
+                ...StackActions.popToTop(),
+                target: moreRoute.state.key,
+              });
+            }
+
             navigation.navigate('More', { screen: 'MoreMenu' });
           },
         })}
@@ -197,3 +323,11 @@ export default function MainNavigator() {
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
