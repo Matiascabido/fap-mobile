@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { planesService } from '../../services/api/planes.service';
 import { PlanWithRelations } from '../../types/planes.types';
-import { useTheme } from '../../context/ThemeContext';
+import { useAppTheme } from '../../context/ThemeContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -24,9 +24,9 @@ type EstadoFilter = 'todos' | 'activos' | 'finalizados';
 
 export default function PlanesListScreen() {
   const navigation = useNavigation<any>();
-  const { isDark } = useTheme();
-  const { isProfesionalUser, isAdminUser } = usePermissions();
-  const canManage = isProfesionalUser || isAdminUser;
+  const { isDark, colors } = useAppTheme();
+  const { canManagePlanes } = usePermissions();
+  const canManage = canManagePlanes();
 
   const [planes, setPlanes] = useState<PlanWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function PlanesListScreen() {
 
   const debouncedSearch = useDebounce(search, 400);
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
+  const bgColor = colors.groupedBackground;
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
@@ -215,6 +215,7 @@ export default function PlanesListScreen() {
         renderItem={renderPlan}
         keyExtractor={(item) => item.plan.id}
         contentContainerStyle={styles.listContent}
+        contentInsetAdjustmentBehavior="automatic"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

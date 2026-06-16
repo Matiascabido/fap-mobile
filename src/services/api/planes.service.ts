@@ -87,15 +87,25 @@ export const planesService = {
   async addEjercicioToBloque(
     planId: string,
     planBloqueId: string,
-    idEjercicio: string
+    payload: {
+      id_ejercicio: string;
+      series?: string | null;
+      reps?: string | null;
+      peso?: string | null;
+    }
   ): Promise<unknown> {
     return apiFetch(
       `/planes/${encodeURIComponent(planId)}/plan-bloques/${encodeURIComponent(planBloqueId)}/ejercicios`,
       {
         method: 'POST',
-        data: { id_ejercicio: idEjercicio },
+        data: payload,
       }
     );
+  },
+
+  async getById(planId: string): Promise<PlanWithRelations | null> {
+    const all = await this.getAll();
+    return all.find((p) => p.plan.id === planId) ?? null;
   },
 
   async getAsignacionesBySocio(socioId: string) {

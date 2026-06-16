@@ -105,6 +105,11 @@ export function usePermissions() {
   const canManageEvaluaciones = () => puedeGestionarEvaluaciones(user);
   const canManageSocios = () => puedeGestionarSocios(user);
 
+  const canManagePlanes = () =>
+    hasAnyPermission(['planes:edit', 'planes:manage', 'planes:create']) ||
+    isAdminUser ||
+    isProfesionalUser;
+
   const rolLabel = getRolLabel(user);
 
   return {
@@ -135,6 +140,7 @@ export function usePermissions() {
     canViewAllDni,
     canManageEvaluaciones,
     canManageSocios,
+    canManagePlanes,
     rolLabel,
   };
 }

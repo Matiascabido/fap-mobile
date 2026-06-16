@@ -8,19 +8,20 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { sociosService } from '../../services/api/socios.service';
 import { Socio } from '../../types/socios.types';
-import { useTheme } from '../../context/ThemeContext';
+import { useAppTheme } from '../../context/ThemeContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
+import { typography } from '../../theme/iosTheme';
 import { useDebounce } from '../../hooks/useDebounce';
 import { filterBySearch } from '../../utils/searchNormalize';
 import { openWhatsApp } from '../../utils/whatsappLink';
-import Avatar from '../../components/common/Avatar';
-import Badge from '../../components/common/Badge';
+import SocioListCard from '../../components/socios/SocioListCard';
 import Loader from '../../components/common/Loader';
 import EmptyState from '../../components/common/EmptyState';
 
@@ -28,7 +29,7 @@ type EstadoFilter = 'todos' | 'activo' | 'inactivo';
 
 export default function SociosListScreen() {
   const navigation = useNavigation<any>();
-  const { isDark } = useTheme();
+  const { colors } = useAppTheme();
   const { canManageSocios, canViewAllDni, hasPermission } = usePermissions();
 
   const [socios, setSocios] = useState<Socio[]>([]);
@@ -38,12 +39,6 @@ export default function SociosListScreen() {
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>('todos');
 
   const debouncedSearch = useDebounce(search, 400);
-
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
-  const cardBg = isDark ? palette.darkCard : '#FFFFFF';
-  const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
-  const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
-  const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
 
   const canCreate = hasPermission('usuarios:create') || canManageSocios();
   const showDni = canViewAllDni();
@@ -78,6 +73,9 @@ export default function SociosListScreen() {
         s.email,
         showDni ? s.dni : null,
         s.telefono,
+        s.tipo,
+        s.tipoEstatus,
+        s.especialidad,
       ]);
     }
 
@@ -103,57 +101,15 @@ export default function SociosListScreen() {
   }, []);
 
   const renderSocio = useCallback(
-    ({ item }: { item: Socio }) => {
-      const parts = item.nombre.split(' ');
-      const nombre = parts[0] ?? '';
-      const apellido = parts.slice(1).join(' ');
-
-      return (
-        <TouchableOpacity
-          style={[styles.socioCard, { backgroundColor: cardBg, borderColor }]}
-          onPress={() => navigation.navigate('SocioDetail', { socioId: item.id })}
-          activeOpacity={0.7}
-        >
-          <Avatar nombre={nombre} apellido={apellido} size={48} />
-          <View style={styles.socioInfo}>
-            <Text style={[styles.socioNombre, { color: textPrimary }]} numberOfLines={1}>
-              {item.nombre}
-            </Text>
-            <Text style={[styles.socioEmail, { color: textSecondary }]} numberOfLines={1}>
-              {item.email || 'Sin email'}
-            </Text>
-            {showDni && item.dni ? (
-              <Text style={[styles.socioDni, { color: textSecondary }]}>DNI: {item.dni}</Text>
-            ) : null}
-            {item.telefono ? (
-              <View style={styles.phoneRow}>
-                <MaterialCommunityIcons name="phone" size={12} color={textSecondary} />
-                <Text style={[styles.socioTelefono, { color: textSecondary }]}>{item.telefono}</Text>
-              </View>
-            ) : null}
-          </View>
-          <View style={styles.socioRight}>
-            <Badge
-              label={item.estado}
-              variant={item.estado === 'Activo' ? 'success' : 'neutral'}
-            />
-            <View style={styles.actionButtons}>
-              {item.telefono && (
-                <TouchableOpacity
-                  style={styles.waButton}
-                  onPress={() => handleWhatsApp(item)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <MaterialCommunityIcons name="whatsapp" size={18} color="#25D366" />
-                </TouchableOpacity>
-              )}
-              <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-            </View>
-          </View>
-        </TouchableOpacity>
-      );
-    },
-    [cardBg, borderColor, textPrimary, textSecondary, navigation, handleWhatsApp, showDni]
+    ({ item }: { item: Socio }) => (
+      <SocioListCard
+        socio={item}
+        showDni={showDni}
+        onPress={() => navigation.navigate('SocioDetail', { socioId: item.id })}
+        onWhatsApp={() => handleWhatsApp(item)}
+      />
+    ),
+    [showDni, navigation, handleWhatsApp]
   );
 
   if (loading) {
@@ -161,29 +117,41 @@ export default function SociosListScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Barra de búsqueda */}
+    <View style={[styles.container, { backgroundColor: colors.groupedBackground }]}>
       <View style={styles.header}>
-        <View style={[styles.searchBar, { backgroundColor: cardBg, borderColor }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={textSecondary} />
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: colors.secondaryGroupedBackground,
+              borderColor: colors.separator,
+            },
+          ]}
+        >
+          <Ionicons name="search" size={18} color={colors.secondaryLabel} />
           <TextInput
-            placeholder={`Buscar por nombre, email${showDni ? ', DNI' : ''}`}
-            placeholderTextColor={textSecondary}
+            placeholder={`Buscar por nombre, email${showDni ? ', DNI' : ''}…`}
+            placeholderTextColor={colors.tertiaryLabel}
             value={search}
             onChangeText={setSearch}
-            style={[styles.searchInput, { color: textPrimary }]}
+            style={[styles.searchInput, typography.body, { color: colors.label }]}
             autoCapitalize="none"
             autoCorrect={false}
+            clearButtonMode="while-editing"
           />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <MaterialCommunityIcons name="close-circle" size={18} color={textSecondary} />
+          {search.length > 0 && Platform.OS === 'android' ? (
+            <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={colors.tertiaryLabel} />
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
 
-        {/* Filtros de estado */}
-        <View style={styles.filters}>
+        <View
+          style={[
+            styles.segmented,
+            { backgroundColor: colors.tertiaryGroupedBackground },
+          ]}
+        >
           {(['todos', 'activo', 'inactivo'] as EstadoFilter[]).map((filter) => {
             const isActive = estadoFilter === filter;
             const labels: Record<EstadoFilter, string> = {
@@ -195,15 +163,32 @@ export default function SociosListScreen() {
               <TouchableOpacity
                 key={filter}
                 style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: isActive ? palette.primary : cardBg,
-                    borderColor: isActive ? palette.primary : borderColor,
+                  styles.segment,
+                  isActive && {
+                    backgroundColor: colors.secondaryGroupedBackground,
+                    ...Platform.select({
+                      ios: {
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.12,
+                        shadowRadius: 2,
+                      },
+                      android: { elevation: 2 },
+                    }),
                   },
                 ]}
                 onPress={() => setEstadoFilter(filter)}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.filterText, { color: isActive ? '#FFFFFF' : textSecondary }]}>
+                <Text
+                  style={[
+                    styles.segmentText,
+                    {
+                      color: isActive ? colors.label : colors.secondaryLabel,
+                      fontWeight: isActive ? '600' : '500',
+                    },
+                  ]}
+                >
                   {labels[filter]}
                 </Text>
               </TouchableOpacity>
@@ -211,12 +196,11 @@ export default function SociosListScreen() {
           })}
         </View>
 
-        <Text style={[styles.count, { color: textSecondary }]}>
+        <Text style={[styles.count, typography.footnote, { color: colors.secondaryLabel }]}>
           {filteredSocios.length} {filteredSocios.length === 1 ? 'socio' : 'socios'}
         </Text>
       </View>
 
-      {/* Lista */}
       <FlatList
         data={filteredSocios}
         renderItem={renderSocio}
@@ -226,8 +210,8 @@ export default function SociosListScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[palette.primary]}
-            tintColor={palette.primary}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
           />
         }
         ListEmptyComponent={
@@ -240,61 +224,70 @@ export default function SociosListScreen() {
         removeClippedSubviews
         maxToRenderPerBatch={10}
         windowSize={10}
-        initialNumToRender={12}
+        initialNumToRender={10}
       />
 
-      {/* FAB Agregar */}
-      {canCreate && (
+      {canCreate ? (
         <TouchableOpacity
-          style={styles.fab}
-          activeOpacity={0.8}
+          style={[styles.fab, { backgroundColor: colors.tint }]}
+          activeOpacity={0.85}
           onPress={() => navigation.navigate('SocioForm')}
           accessibilityLabel="Agregar socio"
         >
-          <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
+          <Ionicons name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
-      )}
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingTop: 12 },
+  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   searchBar: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    height: 40,
+    gap: 8,
   },
-  searchInput: { flex: 1, fontSize: 15, marginLeft: 8 },
-  filters: { flexDirection: 'row', marginTop: 12, gap: 8 },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  filterText: { fontSize: 13, fontWeight: '600' },
-  count: { fontSize: 13, marginTop: 12, marginBottom: 4 },
+  searchInput: { flex: 1, fontSize: 17, paddingVertical: 0 },
+  segmented: {
+    flexDirection: 'row',
+    marginTop: 12,
+    borderRadius: 9,
+    padding: 2,
+  },
+  segment: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    borderRadius: 7,
+  },
+  segmentText: { fontSize: 13 },
+  count: { marginTop: 10, marginBottom: 4, marginLeft: 4 },
   listContent: {
     paddingHorizontal: 16,
+    paddingTop: 4,
     paddingBottom: 100,
     flexGrow: 1,
   },
-  socioCard: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 16, borderWidth: 1, padding: 12, marginBottom: 10,
-  },
-  socioInfo: { flex: 1, marginLeft: 12 },
-  socioNombre: { fontSize: 16, fontWeight: '600' },
-  socioEmail: { fontSize: 13, marginTop: 2 },
-  socioDni: { fontSize: 12, marginTop: 2 },
-  phoneRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
-  socioTelefono: { fontSize: 12 },
-  socioRight: { alignItems: 'flex-end', gap: 6 },
-  actionButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  waButton: { padding: 4 },
   fab: {
-    position: 'absolute', right: 20, bottom: 24,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: palette.primary,
-    justifyContent: 'center', alignItems: 'center',
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: palette.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

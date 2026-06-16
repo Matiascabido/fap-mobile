@@ -14,7 +14,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { tutorialesService, TUTORIALES_PAGE_SIZE } from '../../services/api/tutoriales.service';
 import { Tutorial } from '../../types/tutoriales.types';
-import { useTheme } from '../../context/ThemeContext';
+import { VideoFeedItem } from '../../types/video.types';
+import { useAppTheme } from '../../context/ThemeContext';
 import { palette } from '../../constants/colors';
 import { useDebounce } from '../../hooks/useDebounce';
 import Loader from '../../components/common/Loader';
@@ -22,7 +23,7 @@ import EmptyState from '../../components/common/EmptyState';
 import VideoPlayerModal from '../../components/common/VideoPlayerModal';
 
 export default function TutorialesScreen() {
-  const { isDark } = useTheme();
+  const { isDark, colors } = useAppTheme();
 
   const [tutoriales, setTutoriales] = useState<Tutorial[]>([]);
   const [grupos, setGrupos] = useState<string[]>([]);
@@ -33,11 +34,11 @@ export default function TutorialesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [total, setTotal] = useState(0);
   const [skip, setSkip] = useState(0);
-  const [videoModal, setVideoModal] = useState<Tutorial | null>(null);
+  const [videoState, setVideoState] = useState<{ index: number } | null>(null);
 
   const debouncedSearch = useDebounce(search, 500);
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
+  const bgColor = colors.groupedBackground;
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
@@ -96,9 +97,25 @@ export default function TutorialesScreen() {
 
   const handleOpenVideo = useCallback((tutorial: Tutorial) => {
     if (tutorial.embedUrl || tutorial.videoUrl) {
-      setVideoModal(tutorial);
+      const index = tutoriales.findIndex((t) => t.id === tutorial.id);
+      setVideoState({ index: index >= 0 ? index : 0 });
     }
-  }, []);
+  }, [tutoriales]);
+
+  const videoFeedItems: VideoFeedItem[] = useMemo(
+    () =>
+      tutoriales.map((t) => ({
+        id: t.id,
+        titulo: t.titulo,
+        descripcion: t.descripcion,
+        instructor: t.instructor,
+        videoUrl: t.videoUrl,
+        embedUrl: t.embedUrl,
+        videoId: t.id,
+        thumbnail: t.thumbnail,
+      })),
+    [tutoriales]
+  );
 
   const renderTutorial = useCallback(
     ({ item }: { item: Tutorial }) => (
@@ -225,6 +242,7 @@ export default function TutorialesScreen() {
           renderItem={renderTutorial}
           keyExtractor={(item, index) => `${item.id}-${index}`}
           contentContainerStyle={styles.listContent}
+          contentInsetAdjustmentBehavior="automatic"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -254,12 +272,10 @@ export default function TutorialesScreen() {
         />
       )}
       <VideoPlayerModal
-        visible={Boolean(videoModal)}
-        title={videoModal?.titulo}
-        videoId={videoModal?.id}
-        embedUrl={videoModal?.embedUrl}
-        videoUrl={videoModal?.videoUrl}
-        onClose={() => setVideoModal(null)}
+        visible={videoState !== null}
+        items={videoFeedItems}
+        initialIndex={videoState?.index ?? 0}
+        onClose={() => setVideoState(null)}
       />
     </View>
   );
@@ -303,7 +319,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 120,
     flexGrow: 1,
   },
   card: {

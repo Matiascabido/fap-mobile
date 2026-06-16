@@ -419,21 +419,32 @@ function DejanosMensajeModal({ visible, onClose }: DejanosMensajeModalProps) {
 const HIDE_FAB_ROUTES = new Set([
   'Socios',
   'Suscripciones',
+  'Turnero',
+  'Evaluaciones',
+  'Metricas',
+  'Perfil',
   'SociosList',
   'SocioDetail',
   'SocioForm',
   'PlanesList',
   'PlanDetail',
   'PlanForm',
+  'PlanEjercicioDetail',
+  'TutorialesMain',
+  'MoreMenu',
 ]);
+
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 49 : 56;
 
 interface FloatingActionButtonsProps {
   activeRoute?: string;
+  hide?: boolean;
 }
 
-export default function FloatingActionButtons({ activeRoute }: FloatingActionButtonsProps) {
+export default function FloatingActionButtons({ activeRoute, hide }: FloatingActionButtonsProps) {
   const insets = useSafeAreaInsets();
-  const hideFab = activeRoute ? HIDE_FAB_ROUTES.has(activeRoute) : false;
+  const hideFab =
+    hide || (activeRoute ? HIDE_FAB_ROUTES.has(activeRoute) : false);
   const [expanded, setExpanded] = useState(false);
   const [showSugerir, setShowSugerir] = useState(false);
   const [showMensaje, setShowMensaje] = useState(false);
@@ -453,7 +464,7 @@ export default function FloatingActionButtons({ activeRoute }: FloatingActionBut
   return (
     <>
       {!hideFab && (
-      <View style={[styles.fabContainer, { bottom: insets.bottom + 24 }]}>
+      <View style={[styles.fabContainer, { bottom: insets.bottom + TAB_BAR_HEIGHT + 12 }]}>
         {expanded && (
           <View style={styles.fabActions}>
             <FabAction

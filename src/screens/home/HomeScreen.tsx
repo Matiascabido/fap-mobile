@@ -11,10 +11,25 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
-import { useTheme } from '../../context/ThemeContext';
+import { useAppTheme } from '../../context/ThemeContext';
 import { palette } from '../../constants/colors';
 import { getGreeting, formatLongDate, capitalize } from '../../utils/formatters';
 import { getRolLabel } from '../../utils/sessionRole';
+
+function navigateToModule(navigation: any, route: string) {
+  const tabRoutes = new Set(['Home', 'Planes', 'Tutoriales']);
+  if (tabRoutes.has(route)) {
+    if (route === 'Home') {
+      navigation.popToTop?.();
+      return;
+    }
+    navigation.navigate(route, {
+      screen: route === 'Planes' ? 'PlanesList' : 'TutorialesMain',
+    });
+    return;
+  }
+  navigation.navigate('More', { screen: route });
+}
 
 interface QuickAccess {
   title: string;
@@ -36,9 +51,9 @@ export default function HomeScreen() {
     canEnrollTurnos,
     canManageEvaluaciones,
   } = usePermissions();
-  const { isDark } = useTheme();
+  const { isDark, colors } = useAppTheme();
 
-  const bgColor = isDark ? palette.darkBg : palette.slate50;
+  const bgColor = colors.groupedBackground;
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
@@ -64,6 +79,7 @@ export default function HomeScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: bgColor }]}
       contentContainerStyle={styles.content}
+      contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
     >
       {/* Hero card */}
@@ -116,7 +132,7 @@ export default function HomeScreen() {
                 styles.accessCard,
                 { backgroundColor: isDark ? palette.slate800 : palette.slate50, borderColor },
               ]}
-              onPress={() => navigation.navigate(item.route)}
+              onPress={() => navigateToModule(navigation, item.route)}
               activeOpacity={0.85}
             >
               <View
@@ -264,7 +280,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   heroCard: {
     borderRadius: 22,

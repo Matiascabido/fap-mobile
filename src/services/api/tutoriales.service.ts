@@ -182,4 +182,44 @@ export const tutorialesService = {
 
     return { total: env.total, skip, limit, items };
   },
+
+  /** Resuelve un video del catálogo por id (UUID o YouTube id). */
+  async resolveVideoById(id: string): Promise<import('../../types/tutoriales.types').Tutorial | null> {
+    const trimmed = id?.trim();
+    if (!trimmed) return null;
+
+    try {
+      const raw = await apiFetch<unknown>(
+        `/tutoriales/${encodeURIComponent(trimmed)}`,
+        { method: 'GET' },
+        { suppressGlobalAlert: true }
+      );
+      const t = coerceRowToTutorial(raw);
+      if (t) return t;
+    } catch {
+      // continuar con búsqueda en listado
+    }
+
+    const res = await this.getTutoriales(0, 200);
+    const found = res.items.find(
+      (t) => t.id === trimmed || t.catalogVideoId === trimmed
+    );
+    if (found) return found;
+
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+      return {
+        id: trimmed,
+        titulo: 'Demostración',
+        descripcion: 'Video de ejercicio',
+        videoUrl: `https://www.youtube.com/watch?v=${trimmed}`,
+        embedUrl: `https://www.youtube.com/embed/${trimmed}`,
+        thumbnail: `https://i.ytimg.com/vi/${trimmed}/hqdefault.jpg`,
+        instructor: 'GUIA FA',
+        publishedAt: new Date().toISOString(),
+        grupos: [],
+      };
+    }
+
+    return null;
+  },
 };

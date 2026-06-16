@@ -41,18 +41,29 @@ export function extractYouTubeVideoId(urlOrId?: string | null): string | null {
   return null;
 }
 
-export function buildYouTubeEmbedUrl(videoId: string, origin = getYouTubeEmbedOrigin()): string {
+export function buildYouTubeEmbedUrl(
+  videoId: string,
+  origin = getYouTubeEmbedOrigin(),
+  options?: { autoplay?: boolean; mute?: boolean }
+): string {
   const params = new URLSearchParams({
     playsinline: '1',
     rel: '0',
     modestbranding: '1',
     origin,
+    enablejsapi: '1',
   });
+  if (options?.autoplay) params.set('autoplay', '1');
+  if (options?.mute) params.set('mute', '1');
   return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
 }
 
-export function buildYouTubeEmbedHtml(videoId: string, origin = getYouTubeEmbedOrigin()): string {
-  const src = buildYouTubeEmbedUrl(videoId, origin);
+export function buildYouTubeEmbedHtml(
+  videoId: string,
+  origin = getYouTubeEmbedOrigin(),
+  options?: { autoplay?: boolean; mute?: boolean }
+): string {
+  const src = buildYouTubeEmbedUrl(videoId, origin, options);
   return `<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">

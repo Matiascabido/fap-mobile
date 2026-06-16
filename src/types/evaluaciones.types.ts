@@ -11,6 +11,25 @@ export type TipoValorEvaluacion =
 
 export type LateralidadEvaluacion = 'izquierda' | 'derecha' | 'bilateral' | 'no';
 
+export interface EvaluacionOpcion {
+  id: string;
+  valor: string;
+  etiqueta: string;
+  orden: number;
+}
+
+export interface EvaluacionCampo {
+  id: string;
+  id_padre?: string | null;
+  nombre: string;
+  codigo: string;
+  orden: number;
+  tipo_valor: TipoValorEvaluacion;
+  es_obligatorio: boolean;
+  opciones?: EvaluacionOpcion[];
+  hijos?: EvaluacionCampo[];
+}
+
 export interface EvaluacionPruebaResumen {
   id: string;
   nombre: string;
@@ -31,6 +50,31 @@ export interface EvaluacionGrupo {
   nombre: string;
   orden: number;
   secciones: EvaluacionSeccion[];
+}
+
+export interface EvaluacionPruebaDetalle {
+  id: string;
+  nombre: string;
+  codigo: string;
+  campos: EvaluacionCampo[];
+}
+
+export interface EvaluacionValorInput {
+  id_campo: string;
+  valor_lateralidad?: LateralidadEvaluacion | null;
+  valor_boolean?: boolean | null;
+  valor_numerico?: number | string | null;
+  valor_fecha?: string | null;
+  valor_texto?: string | null;
+  id_opcion?: string | null;
+}
+
+export interface EvaluacionRegistroCreate {
+  id_prueba: string;
+  id_usuario_socio: string;
+  fecha_evaluacion: string;
+  observaciones?: string | null;
+  valores?: EvaluacionValorInput[];
 }
 
 export interface EvaluacionValorResponse {
@@ -69,3 +113,23 @@ export interface ListRegistrosParams {
   page?: number;
   limit?: number;
 }
+
+export type PruebaEstadoSesion = 'pendiente' | 'activa' | 'guardada' | 'omitida';
+
+export type ValorFormState =
+  | { kind: 'lateralidad'; value: LateralidadEvaluacion | '' }
+  | { kind: 'boolean'; value: boolean | null }
+  | { kind: 'numerico'; value: string }
+  | { kind: 'fecha'; value: string }
+  | { kind: 'texto'; value: string }
+  | { kind: 'opcion'; value: string };
+
+export type PruebaFormValues = Record<string, ValorFormState>;
+
+// Aliases para compatibilidad con utils portados del frontend
+export type EvaluacionCampoResponse = EvaluacionCampo;
+export type EvaluacionGrupoResponse = EvaluacionGrupo;
+export type EvaluacionPruebaDetalleResponse = EvaluacionPruebaDetalle;
+export type EvaluacionRegistroResumenResponse = EvaluacionRegistroResumen;
+export type EvaluacionPruebaResumenResponse = EvaluacionPruebaResumen;
+export type EvaluacionSeccionResponse = EvaluacionSeccion;

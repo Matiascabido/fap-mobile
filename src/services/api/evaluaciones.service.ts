@@ -1,10 +1,13 @@
 import { apiFetch } from './http';
 import {
   EvaluacionGrupo,
+  EvaluacionPruebaDetalle,
+  EvaluacionRegistroCreate,
   EvaluacionRegistroResumen,
   EvaluacionRegistroResponse,
   ListRegistrosParams,
 } from '../../types/evaluaciones.types';
+import { registroTimestamp } from '../../utils/evaluaciones/registrosTimeline';
 
 function normalizeGrupoList(raw: unknown): EvaluacionGrupo[] {
   if (Array.isArray(raw)) return raw as EvaluacionGrupo[];
@@ -35,15 +38,17 @@ function normalizeRegistroList(raw: unknown): EvaluacionRegistroResumen[] {
   );
 }
 
-function registroTimestamp(r: EvaluacionRegistroResumen): number {
-  const raw = r.fecha_evaluacion || r.created_date || '';
-  const t = new Date(raw.replace(/-/g, '/')).getTime();
-  return Number.isNaN(t) ? 0 : t;
+function totalFromRegistroListPayload(raw: unknown): number | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  for (const k of ['total', 'count', 'total_count'] as const) {
+    const v = o[k];
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return Math.floor(v);
+  }
+  return null;
 }
 
-function sortRegistrosDesc(
-  list: EvaluacionRegistroResumen[]
-): EvaluacionRegistroResumen[] {
+function sortRegistrosDesc(list: EvaluacionRegistroResumen[]): EvaluacionRegistroResumen[] {
   return [...list].sort((a, b) => {
     const diff = registroTimestamp(b) - registroTimestamp(a);
     if (diff !== 0) return diff;
@@ -52,17 +57,29 @@ function sortRegistrosDesc(
 }
 
 export const evaluacionesService = {
-  /**
-   * Obtiene el catálogo de grupos/secciones/pruebas
-   */
   async getCatalogo(): Promise<EvaluacionGrupo[]> {
     const raw = await apiFetch<unknown>('/evaluaciones/catalogo', { method: 'GET' });
     return normalizeGrupoList(raw);
   },
 
-  /**
-   * Lista los registros de evaluación de un socio
-   */
+  async getCamposPrueba(idPrueba: string): Promise<EvaluacionPruebaDetalle> {
+    return apiFetch<EvaluacionPruebaDetalle>(
+      `/evaluaciones/pruebas/${encodeURIComponent(idPrueba)}/campos`,
+      { method: 'GET' }
+    );
+  },
+
+  async createRegistro(body: EvaluacionRegistroCreate): Promise<EvaluacionRegistroResponse> {
+    return apiFetch<EvaluacionRegistroResponse>(
+      '/evaluaciones/registros',
+      {
+        method: 'POST',
+        data: body,
+      },
+      { suppressGlobalAlert: true }
+    );
+  },
+
   async listRegistros(params: ListRegistrosParams): Promise<EvaluacionRegistroResumen[]> {
     const q = new URLSearchParams();
     q.set('id_usuario_socio', params.id_usuario_socio);
@@ -75,9 +92,38 @@ export const evaluacionesService = {
     return sortRegistrosDesc(normalizeRegistroList(raw));
   },
 
-  /**
-   * Obtiene un registro completo con sus valores
-   */
+  async listAllRegistros(
+    params: Omit<ListRegistrosParams, 'page' | 'limit'>
+  ): Promise<EvaluacionRegistroResumen[]> {
+    const pageSize = 500;
+    const byId = new Map<string, EvaluacionRegistroResumen>();
+    const maxSkip = 50_000;
+
+    for (let skip = 0; skip <= maxSkip; skip += pageSize) {
+      const q = new URLSearchParams();
+      q.set('id_usuario_socio', params.id_usuario_socio);
+      if (params.id_prueba) q.set('id_prueba', params.id_prueba);
+      q.set('skip', String(skip));
+      q.set('limit', String(pageSize));
+
+      const raw = await apiFetch<unknown>(`/evaluaciones/registros?${q.toString()}`, { method: 'GET' });
+      const batch = normalizeRegistroList(raw);
+      const total = totalFromRegistroListPayload(raw);
+      const sizeBefore = byId.size;
+
+      for (const row of batch) {
+        byId.set(row.id, row);
+      }
+
+      if (batch.length === 0) break;
+      if (total != null && byId.size >= total) break;
+      if (batch.length < pageSize) break;
+      if (skip > 0 && byId.size === sizeBefore) break;
+    }
+
+    return sortRegistrosDesc(Array.from(byId.values()));
+  },
+
   async getRegistro(idRegistro: string): Promise<EvaluacionRegistroResponse> {
     return apiFetch<EvaluacionRegistroResponse>(
       `/evaluaciones/registros/${encodeURIComponent(idRegistro)}`,

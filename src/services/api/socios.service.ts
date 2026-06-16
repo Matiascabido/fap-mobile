@@ -26,6 +26,11 @@ export function mapUserToSocio(u: User): Socio | null {
   if (!id) return null;
   const tipoEstatus = (u.tipo_estatus || u.tipo_status || '').trim();
   const rolNombre = u.rol?.nombre_rol ?? 'usuario';
+  const especialidad =
+    u.especialidad_etiqueta?.trim() ||
+    u.especialidad_nombre?.trim() ||
+    u.disciplina?.trim() ||
+    undefined;
 
   return {
     id,
@@ -36,6 +41,7 @@ export function mapUserToSocio(u: User): Socio | null {
     tipo: rolNombre.toLowerCase(),
     estado: u.estado ? 'Activo' : 'Inactivo',
     ...(tipoEstatus ? { tipoEstatus } : {}),
+    ...(especialidad ? { especialidad } : {}),
   };
 }
 

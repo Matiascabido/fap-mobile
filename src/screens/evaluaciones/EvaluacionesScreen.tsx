@@ -24,32 +24,44 @@ import SocioSelector from '../../components/common/SocioSelector';
 import EvolutionChart from '../../components/common/EvolutionChart';
 import Card from '../../components/common/Card';
 import EmptyState from '../../components/common/EmptyState';
+import NuevaEvaluacionFlow from '../../components/evaluaciones/NuevaEvaluacionFlow';
 
-export default function EvaluacionesScreen() {
+type Tab = 'nueva' | 'historial';
+
+function formatValor(valor: EvaluacionRegistroResponse['valores'][0]): string {
+  if (valor.valor_numerico != null) return valor.valor_numerico;
+  if (valor.valor_boolean != null) return valor.valor_boolean ? 'Sí' : 'No';
+  if (valor.valor_lateralidad != null) return valor.valor_lateralidad;
+  if (valor.valor_fecha != null) return valor.valor_fecha;
+  if (valor.valor_texto != null) return valor.valor_texto;
+  return '-';
+}
+
+function EvaluacionesHistorial({
+  esSocio,
+  socioId,
+  selectedSocio,
+  onSelectSocio,
+  onRefreshRequest,
+}: {
+  esSocio: boolean;
+  socioId: string | undefined;
+  selectedSocio: Socio | null;
+  onSelectSocio: (s: Socio) => void;
+  onRefreshRequest?: number;
+}) {
   const { isDark } = useTheme();
-  const { user } = useAuth();
-  const { canManageEvaluaciones } = usePermissions();
-
-  // Socios/entrenados NO gestionan evaluaciones: solo las ven
-  const esSocio = !canManageEvaluaciones();
-
-  const [selectedSocio, setSelectedSocio] = useState<Socio | null>(null);
   const [registros, setRegistros] = useState<EvaluacionRegistroResumen[]>([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedPrueba, setSelectedPrueba] = useState<string | null>(null);
   const [registroDetalle, setRegistroDetalle] = useState<EvaluacionRegistroResponse | null>(null);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [evolucion, setEvolucion] = useState<{ labels: string[]; data: number[] } | null>(null);
 
-  const bgColor = isDark ? palette.darkBg : palette.lightBg;
   const cardBg = isDark ? palette.darkCard : '#FFFFFF';
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
   const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
-
-  // ID del socio a consultar
-  const socioId = esSocio ? user?.id : selectedSocio?.id;
 
   const loadRegistros = useCallback(async () => {
     if (!socioId) return;
@@ -64,7 +76,6 @@ export default function EvaluacionesScreen() {
       console.error('Error loading registros:', error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [socioId]);
 
@@ -77,14 +88,8 @@ export default function EvaluacionesScreen() {
     } else {
       setRegistros([]);
     }
-  }, [socioId, loadRegistros]);
+  }, [socioId, loadRegistros, onRefreshRequest]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadRegistros();
-  }, [loadRegistros]);
-
-  // Pruebas únicas (agrupadas)
   const pruebas = useMemo(() => {
     const map = new Map<string, { id: string; nombre: string; count: number }>();
     for (const r of registros) {
@@ -102,13 +107,11 @@ export default function EvaluacionesScreen() {
     return Array.from(map.values());
   }, [registros]);
 
-  // Registros de la prueba seleccionada
   const registrosPrueba = useMemo(() => {
     if (!selectedPrueba) return [];
     return registros.filter((r) => r.id_prueba === selectedPrueba);
   }, [registros, selectedPrueba]);
 
-  // Cargar evolución al seleccionar una prueba
   const handleSelectPrueba = async (pruebaId: string) => {
     if (selectedPrueba === pruebaId) {
       setSelectedPrueba(null);
@@ -123,9 +126,8 @@ export default function EvaluacionesScreen() {
       const regsPrueba = registros
         .filter((r) => r.id_prueba === pruebaId)
         .slice(0, 12)
-        .reverse(); // cronológico ascendente para el gráfico
+        .reverse();
 
-      // Cargar detalle de cada registro para extraer valor numérico
       const detalles = await Promise.all(
         regsPrueba.map((r) => evaluacionesService.getRegistro(r.id).catch(() => null))
       );
@@ -136,7 +138,6 @@ export default function EvaluacionesScreen() {
       for (let i = 0; i < detalles.length; i++) {
         const det = detalles[i];
         if (!det) continue;
-        // Buscar el primer valor numérico
         const numericoValor = det.valores?.find(
           (v) => v.tipo_valor === 'NUMERICO' && v.valor_numerico != null
         );
@@ -176,23 +177,11 @@ export default function EvaluacionesScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: bgColor }]}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[palette.primary]}
-          tintColor={palette.primary}
-        />
-      }
-    >
-      {/* Selector de socio (solo para staff) */}
+    <View>
       {!esSocio && (
         <View style={styles.selectorContainer}>
           <Text style={[styles.label, { color: textSecondary }]}>Socio</Text>
-          <SocioSelector selected={selectedSocio} onSelect={setSelectedSocio} />
+          <SocioSelector selected={selectedSocio} onSelect={onSelectSocio} />
         </View>
       )}
 
@@ -213,11 +202,8 @@ export default function EvaluacionesScreen() {
           message="Este socio todavía no tiene evaluaciones registradas"
         />
       ) : (
-        <>
-          {/* Pruebas */}
-          <Text style={[styles.sectionTitle, { color: textPrimary }]}>
-            Pruebas evaluadas
-          </Text>
+        <View>
+          <Text style={[styles.sectionTitle, { color: textPrimary }]}>Pruebas evaluadas</Text>
           {pruebas.map((prueba) => {
             const isSelected = selectedPrueba === prueba.id;
             return (
@@ -237,9 +223,7 @@ export default function EvaluacionesScreen() {
                     <MaterialCommunityIcons name="chart-line" size={22} color={palette.primary} />
                   </View>
                   <View style={styles.pruebaInfo}>
-                    <Text style={[styles.pruebaNombre, { color: textPrimary }]}>
-                      {prueba.nombre}
-                    </Text>
+                    <Text style={[styles.pruebaNombre, { color: textPrimary }]}>{prueba.nombre}</Text>
                     <Text style={[styles.pruebaCount, { color: textSecondary }]}>
                       {prueba.count} {prueba.count === 1 ? 'registro' : 'registros'}
                     </Text>
@@ -251,7 +235,6 @@ export default function EvaluacionesScreen() {
                   />
                 </TouchableOpacity>
 
-                {/* Contenido expandido: gráfico + historial */}
                 {isSelected && (
                   <View style={styles.pruebaExpanded}>
                     {loadingDetalle && !evolucion ? (
@@ -259,14 +242,9 @@ export default function EvaluacionesScreen() {
                     ) : null}
 
                     {evolucion && evolucion.data.length > 0 ? (
-                      <EvolutionChart
-                        labels={evolucion.labels}
-                        data={evolucion.data}
-                        title="Evolución"
-                      />
+                      <EvolutionChart labels={evolucion.labels} data={evolucion.data} title="Evolución" />
                     ) : null}
 
-                    {/* Historial de registros */}
                     {registrosPrueba.map((reg) => {
                       const showDetalle = registroDetalle?.id === reg.id;
                       return (
@@ -317,48 +295,121 @@ export default function EvaluacionesScreen() {
               </View>
             );
           })}
-        </>
+        </View>
+      )}
+    </View>
+  );
+}
+
+export default function EvaluacionesScreen() {
+  const { isDark } = useTheme();
+  const { user } = useAuth();
+  const { canManageEvaluaciones } = usePermissions();
+
+  const esSocio = !canManageEvaluaciones();
+  const [tab, setTab] = useState<Tab>(esSocio ? 'historial' : 'nueva');
+  const [historialRefresh, setHistorialRefresh] = useState(0);
+  const [selectedSocio, setSelectedSocio] = useState<Socio | null>(null);
+  const [refreshingHistorial, setRefreshingHistorial] = useState(false);
+
+  const bgColor = isDark ? palette.darkBg : palette.lightBg;
+  const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
+  const tabBg = isDark ? palette.darkCard : '#E2E8F0';
+
+  const socioId = esSocio ? user?.id : selectedSocio?.id;
+
+  return (
+    <ScrollView
+      style={[styles.container, { backgroundColor: bgColor }]}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        tab === 'historial' ? (
+          <RefreshControl
+            refreshing={refreshingHistorial}
+            onRefresh={() => {
+              setRefreshingHistorial(true);
+              setHistorialRefresh((n) => n + 1);
+              setTimeout(() => setRefreshingHistorial(false), 500);
+            }}
+            colors={[palette.primary]}
+            tintColor={palette.primary}
+          />
+        ) : undefined
+      }
+    >
+      {!esSocio ? (
+        <View style={[styles.tabBar, { backgroundColor: tabBg }]}>
+          {(
+            [
+              ['nueva', 'Nueva evaluación'],
+              ['historial', 'Historial'],
+            ] as const
+          ).map(([id, label]) => {
+            const active = tab === id;
+            return (
+              <TouchableOpacity
+                key={id}
+                style={[
+                  styles.tabBtn,
+                  active && { backgroundColor: isDark ? palette.darkBg : '#FFFFFF' },
+                ]}
+                onPress={() => setTab(id)}
+              >
+                <Text
+                  style={[
+                    styles.tabBtnText,
+                    { color: active ? palette.primary : textSecondary },
+                    active && styles.tabBtnTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {tab === 'nueva' && !esSocio ? (
+        <NuevaEvaluacionFlow onRegistroSaved={() => setHistorialRefresh((n) => n + 1)} />
+      ) : (
+        <EvaluacionesHistorial
+          esSocio={esSocio}
+          socioId={socioId}
+          selectedSocio={selectedSocio}
+          onSelectSocio={setSelectedSocio}
+          onRefreshRequest={historialRefresh}
+        />
       )}
     </ScrollView>
   );
 }
 
-function formatValor(valor: EvaluacionRegistroResponse['valores'][0]): string {
-  if (valor.valor_numerico != null) return valor.valor_numerico;
-  if (valor.valor_boolean != null) return valor.valor_boolean ? 'Sí' : 'No';
-  if (valor.valor_lateralidad != null) return valor.valor_lateralidad;
-  if (valor.valor_fecha != null) return valor.valor_fecha;
-  if (valor.valor_texto != null) return valor.valor_texto;
-  return '-';
-}
-
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1 },
+  content: { padding: 16, paddingBottom: 40, flexGrow: 1 },
+  tabBar: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 16,
+    gap: 4,
+  },
+  tabBtn: {
     flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-    flexGrow: 1,
-  },
-  selectorContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  loaderContainer: {
-    paddingVertical: 60,
+    minHeight: 44,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
+  tabBtnText: { fontSize: 13, fontWeight: '700' },
+  tabBtnTextActive: { fontWeight: '800' },
+  selectorContainer: { marginBottom: 20 },
+  label: { fontSize: 13, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase' },
+  loaderContainer: { paddingVertical: 60, alignItems: 'center' },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
   pruebaCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -374,59 +425,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pruebaInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  pruebaNombre: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  pruebaCount: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  pruebaExpanded: {
-    marginBottom: 12,
-  },
-  detailLoader: {
-    paddingVertical: 20,
-  },
-  registroCard: {
-    marginBottom: 8,
-  },
-  registroHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  registroFecha: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  valoresContainer: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    marginTop: 12,
-    paddingTop: 12,
-  },
-  observaciones: {
-    fontSize: 14,
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  valorRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  valorNombre: {
-    fontSize: 14,
-    flex: 1,
-  },
-  valorValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
+  pruebaInfo: { flex: 1, marginLeft: 12 },
+  pruebaNombre: { fontSize: 15, fontWeight: '600' },
+  pruebaCount: { fontSize: 13, marginTop: 2 },
+  pruebaExpanded: { marginBottom: 12 },
+  detailLoader: { paddingVertical: 20 },
+  registroCard: { marginBottom: 8 },
+  registroHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  registroFecha: { flex: 1, fontSize: 15, fontWeight: '500' },
+  valoresContainer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 12, paddingTop: 12 },
+  observaciones: { fontSize: 14, fontStyle: 'italic', marginBottom: 12 },
+  valorRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+  valorNombre: { fontSize: 14, flex: 1 },
+  valorValue: { fontSize: 14, fontWeight: '600', marginLeft: 12 },
 });

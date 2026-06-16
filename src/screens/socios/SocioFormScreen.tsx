@@ -42,7 +42,6 @@ export default function SocioFormScreen() {
   const [dni, setDni] = useState('');
   const [mail, setMail] = useState('');
   const [celular, setCelular] = useState('');
-  const [password, setPassword] = useState('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
 
   const bgColor = isDark ? palette.darkBg : palette.lightBg;
@@ -75,7 +74,7 @@ export default function SocioFormScreen() {
         dni: dni.trim(),
         id_rol: idRol,
         mail: mail.trim(),
-        password: password.trim() || dni.trim(),
+        password: dni.trim(),
         celular: celular.trim() || undefined,
         ...(fechaNacimiento ? { fecha_nacimiento: fechaNacimiento } : {}),
         historia_clinica: {
@@ -141,14 +140,6 @@ export default function SocioFormScreen() {
           maximumDate={fechaNacMax}
           minimumDate={fechaNacMin}
           placeholder="Opcional — elegí la fecha"
-        />
-        <Input
-          label="Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          icon="lock"
-          isPassword
-          placeholder="Opcional (por defecto usa el DNI)"
         />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <Button title="Crear socio" onPress={handleSubmit} loading={loading} />

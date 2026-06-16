@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { palette } from '../../constants/colors';
+import { hapticLight } from '../../utils/haptics';
 
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger' | 'filled' | 'gray' | 'plain';
 
 interface ButtonProps {
   title: string;
@@ -40,7 +41,10 @@ export default function Button({
 
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       disabled={isDisabled}
       activeOpacity={0.8}
       style={[
@@ -102,6 +106,21 @@ function getVariantStyles(variant: ButtonVariant, disabled: boolean) {
       return {
         container: { backgroundColor: palette.error },
         text: { color: '#FFFFFF' },
+      };
+    case 'filled':
+      return {
+        container: { backgroundColor: palette.primary, borderRadius: 10 },
+        text: { color: '#FFFFFF' },
+      };
+    case 'gray':
+      return {
+        container: { backgroundColor: '#78788033', borderRadius: 10 },
+        text: { color: palette.lightTextPrimary },
+      };
+    case 'plain':
+      return {
+        container: { backgroundColor: 'transparent', borderRadius: 10 },
+        text: { color: palette.primary },
       };
     default:
       return {

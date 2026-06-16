@@ -12,12 +12,14 @@ import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import FloatingActionButtons from '../components/common/FloatingActionButtons';
 import { getActiveRouteName } from './routeUtils';
+import { useVideoFeed } from '../context/VideoFeedContext';
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
   const { isDark } = useTheme();
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
   const [activeRoute, setActiveRoute] = useState<string | undefined>();
+  const { isVideoFeedOpen } = useVideoFeed();
 
   const syncActiveRoute = useCallback(() => {
     const state = navigationRef.current?.getRootState();
@@ -58,7 +60,7 @@ export default function AppNavigator() {
       {isAuthenticated ? (
         <>
           <MainNavigator />
-          <FloatingActionButtons activeRoute={activeRoute} />
+          <FloatingActionButtons activeRoute={activeRoute} hide={isVideoFeedOpen} />
         </>
       ) : (
         <AuthNavigator />

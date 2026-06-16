@@ -1,12 +1,14 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { storage, STORAGE_KEYS } from '../services/api/storage';
+import { AppThemeTokens, getAppTheme } from '../theme/iosTheme';
 
 type Theme = 'light' | 'dark' | 'auto';
 
 interface ThemeContextType {
   theme: Theme;
   isDark: boolean;
+  colors: AppThemeTokens;
   toggleTheme: () => Promise<void>;
   setTheme: (theme: Theme) => Promise<void>;
 }
@@ -54,9 +56,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     await setTheme(newTheme);
   };
 
+  const colors = useMemo(() => getAppTheme(isDark), [isDark]);
+
   const value: ThemeContextType = {
     theme,
     isDark,
+    colors,
     toggleTheme,
     setTheme,
   };
@@ -71,3 +76,6 @@ export const useTheme = (): ThemeContextType => {
   }
   return context;
 };
+
+/** Alias semántico para tokens iOS/HIG */
+export const useAppTheme = useTheme;

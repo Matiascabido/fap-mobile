@@ -157,25 +157,50 @@ export function AddEjercicioModal({
   const [ejercicios, setEjercicios] = useState<EjercicioCatalogo[]>([]);
   const [search, setSearch] = useState('');
   const [sel, setSel] = useState('');
+  const [series, setSeries] = useState('');
+  const [reps, setReps] = useState('');
+  const [peso, setPeso] = useState('');
   const [loadingList, setLoadingList] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [skip, setSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE = 50;
 
   const bgColor = isDark ? palette.darkCard : '#FFFFFF';
   const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
   const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
   const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
+  const groupedBg = isDark ? palette.darkBg : '#F2F2F7';
+
+  const loadPage = async (reset = false) => {
+    const nextSkip = reset ? 0 : skip;
+    if (reset) setLoadingList(true);
+    else setLoadingMore(true);
+    try {
+      const batch = await ejerciciosService.getAll(nextSkip, PAGE);
+      setEjercicios((prev) => (reset ? batch : [...prev, ...batch]));
+      setSkip(nextSkip + batch.length);
+      setHasMore(batch.length >= PAGE);
+    } catch {
+      if (reset) setEjercicios([]);
+    } finally {
+      setLoadingList(false);
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     if (visible) {
-      setLoadingList(true);
-      ejerciciosService
-        .getAll()
-        .then(setEjercicios)
-        .catch(() => setEjercicios([]))
-        .finally(() => setLoadingList(false));
+      loadPage(true);
     } else {
       setSearch('');
       setSel('');
+      setSeries('');
+      setReps('');
+      setPeso('');
+      setSkip(0);
+      setHasMore(true);
     }
   }, [visible]);
 
@@ -190,7 +215,12 @@ export function AddEjercicioModal({
     }
     setLoading(true);
     try {
-      await planesService.addEjercicioToBloque(planId, planBloqueId, sel);
+      await planesService.addEjercicioToBloque(planId, planBloqueId, {
+        id_ejercicio: sel,
+        series: series.trim() || undefined,
+        reps: reps.trim() || undefined,
+        peso: peso.trim() || undefined,
+      });
       Alert.alert('Éxito', 'Ejercicio agregado al bloque.');
       onClose();
       onSaved();
@@ -202,25 +232,73 @@ export function AddEjercicioModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.sheet, { backgroundColor: bgColor, maxHeight: '80%' }]}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : undefined}
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.overlay, Platform.OS === 'ios' && { justifyContent: 'flex-end' }]}
+      >
+        <View style={[styles.sheet, { backgroundColor: bgColor, maxHeight: Platform.OS === 'ios' ? '92%' : '85%' }]}>
+          <View style={styles.sheetHandle} />
           <Text style={[styles.sheetTitle, { color: textPrimary }]}>
             Agregar ejercicio{bloqueNombre ? ` · ${bloqueNombre}` : ''}
           </Text>
 
           <TextInput
-            style={[styles.input, { borderColor, color: textPrimary, marginBottom: 8 }]}
+            style={[styles.input, { borderColor, color: textPrimary, marginBottom: 8, backgroundColor: groupedBg }]}
             value={search}
             onChangeText={setSearch}
             placeholder="Buscar ejercicio..."
             placeholderTextColor={textSecondary}
           />
 
+          <View style={styles.prescriptionRow}>
+            <TextInput
+              style={[styles.prescriptionInput, { borderColor, color: textPrimary, backgroundColor: groupedBg }]}
+              value={series}
+              onChangeText={setSeries}
+              placeholder="Series"
+              placeholderTextColor={textSecondary}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.prescriptionInput, { borderColor, color: textPrimary, backgroundColor: groupedBg }]}
+              value={reps}
+              onChangeText={setReps}
+              placeholder="Reps"
+              placeholderTextColor={textSecondary}
+            />
+            <TextInput
+              style={[styles.prescriptionInput, { borderColor, color: textPrimary, backgroundColor: groupedBg }]}
+              value={peso}
+              onChangeText={setPeso}
+              placeholder="Peso"
+              placeholderTextColor={textSecondary}
+            />
+          </View>
+
           {loadingList ? (
             <ActivityIndicator color={palette.primary} style={{ marginVertical: 24 }} />
           ) : (
-            <ScrollView style={{ maxHeight: 280 }}>
+            <ScrollView
+              style={{ maxHeight: 240 }}
+              onScroll={({ nativeEvent }) => {
+                const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+                if (
+                  hasMore &&
+                  !loadingMore &&
+                  layoutMeasurement.height + contentOffset.y >= contentSize.height - 40
+                ) {
+                  loadPage(false);
+                }
+              }}
+              scrollEventThrottle={200}
+            >
               {filtered.map((e) => (
                 <TouchableOpacity
                   key={e.id}
@@ -236,9 +314,19 @@ export function AddEjercicioModal({
                     size={18}
                     color={sel === e.id ? palette.primary : textSecondary}
                   />
-                  <Text style={[styles.selectorText, { color: textPrimary }]}>{e.nombre}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.selectorText, { color: textPrimary }]}>{e.nombre}</Text>
+                    {e.descripcion ? (
+                      <Text style={{ color: textSecondary, fontSize: 12 }} numberOfLines={1}>
+                        {e.descripcion}
+                      </Text>
+                    ) : null}
+                  </View>
                 </TouchableOpacity>
               ))}
+              {loadingMore ? (
+                <ActivityIndicator color={palette.primary} style={{ marginVertical: 12 }} />
+              ) : null}
             </ScrollView>
           )}
 
@@ -255,7 +343,7 @@ export function AddEjercicioModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -308,4 +396,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   selectorText: { fontSize: 15, flex: 1 },
+  sheetHandle: {
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(120,120,128,0.3)',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  prescriptionRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  prescriptionInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
 });

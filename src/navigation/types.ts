@@ -1,6 +1,6 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 // Auth Stack
 export type AuthStackParamList = {
@@ -9,20 +9,36 @@ export type AuthStackParamList = {
 
 export type AuthNavigationProp = StackNavigationProp<AuthStackParamList>;
 
-// Main Drawer
-export type MainDrawerParamList = {
-  Home: undefined;
-  Socios: NavigatorScreenParams<SociosStackParamList>;
-  Planes: NavigatorScreenParams<PlanesStackParamList>;
+// Home stack
+export type HomeStackParamList = {
+  HomeMain: undefined;
+};
+
+// Tutoriales stack
+export type TutorialesStackParamList = {
+  TutorialesMain: undefined;
+};
+
+// Main Tab Navigator
+export type MainTabParamList = {
+  Home: NavigatorScreenParams<HomeStackParamList> | undefined;
+  Planes: NavigatorScreenParams<PlanesStackParamList> | undefined;
+  Tutoriales: NavigatorScreenParams<TutorialesStackParamList> | undefined;
+  More: NavigatorScreenParams<MoreStackParamList> | undefined;
+};
+
+export type MainDrawerParamList = MainTabParamList;
+
+// More stack (secondary modules)
+export type MoreStackParamList = {
+  MoreMenu: undefined;
+  Socios: NavigatorScreenParams<SociosStackParamList> | undefined;
   Suscripciones: undefined;
   Turnero: undefined;
   Evaluaciones: undefined;
   Metricas: undefined;
-  Tutoriales: undefined;
   Perfil: undefined;
 };
-
-export type MainDrawerNavigationProp = DrawerNavigationProp<MainDrawerParamList>;
 
 // Socios Stack
 export type SociosStackParamList = {
@@ -31,10 +47,18 @@ export type SociosStackParamList = {
   SocioForm: undefined;
 };
 
+export type SociosNavigationProp = NativeStackNavigationProp<SociosStackParamList>;
+
 // Planes Stack
 export type PlanesStackParamList = {
   PlanesList: undefined;
   PlanDetail: { planId: string };
+  PlanEjercicioDetail: {
+    planId: string;
+    planBloqueId?: string;
+    bloqueNombre?: string;
+    ejercicio: import('../types/planes.types').PlanEjercicioItem;
+  };
   PlanForm: {
     planId?: string;
     initialNombre?: string;
@@ -45,10 +69,12 @@ export type PlanesStackParamList = {
   };
 };
 
+export type PlanesNavigationProp = NativeStackNavigationProp<PlanesStackParamList>;
+
 // Root Navigator
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
-  Main: NavigatorScreenParams<MainDrawerParamList>;
+  Main: NavigatorScreenParams<MainTabParamList>;
 };
 
 export type RootNavigationProp = StackNavigationProp<RootStackParamList>;

@@ -13,13 +13,15 @@ interface CardProps {
   onPress?: () => void;
   style?: ViewStyle;
   padding?: number;
+  variant?: 'default' | 'grouped';
 }
 
-export default function Card({ children, onPress, style, padding = 16 }: CardProps) {
+export default function Card({ children, onPress, style, padding = 16, variant = 'default' }: CardProps) {
   const { isDark } = useTheme();
+  const isGrouped = variant === 'grouped';
 
   const cardStyle = [
-    styles.card,
+    isGrouped ? styles.cardGrouped : styles.card,
     {
       backgroundColor: isDark ? palette.darkCard : palette.lightCard,
       borderColor: isDark ? palette.darkBorder : palette.lightBorder,
@@ -48,5 +50,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardGrouped: {
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });
