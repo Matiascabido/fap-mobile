@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,8 +22,16 @@ import { palette } from '../../constants/colors';
 import { typography } from '../../theme/iosTheme';
 import Loader from '../../components/common/Loader';
 import EmptyState from '../../components/common/EmptyState';
-import { normalizeBloques, getEjercicioNombre } from '../../utils/planBloques';
-import { resolveBlockColor, getDiaSemanaLabel } from '../../utils/planBlockColors';
+import { normalizeBloques, getEjercicioNombre, filterListableEjercicios, referencePlanBloqueId } from '../../utils/planBloques';
+import { planEjercicioToDisplay } from '../../utils/planEjercicioDisplay';
+import { compactStatsFromDisplay } from '../../utils/planExerciseDetailRows';
+import { resolveBlockColor } from '../../utils/planBlockColors';
+import {
+  resolveBloquesAgrupados,
+  tituloGrupoDiaSemana,
+  diaGrupoKey,
+  planMostrarAgrupacionPorDia,
+} from '../../utils/planDiasSemana';
 import { hapticSelection } from '../../utils/haptics';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -53,13 +61,13 @@ function EjercicioRow({
 }) {
   const { colors } = useAppTheme();
   const nombre = getEjercicioNombre(ejercicio);
-  const stats = [
-    ejercicio.series ? `Series ${ejercicio.series}` : null,
-    ejercicio.reps ? `Reps ${ejercicio.reps}` : null,
-    ejercicio.peso ? `Peso ${ejercicio.peso}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const stats = compactStatsFromDisplay(planEjercicioToDisplay(ejercicio));
+  const tieneVideo = Boolean(
+    ejercicio.id_video ||
+      ejercicio.ejercicio?.id_video ||
+      ejercicio.ejercicio?.video ||
+      ejercicio.ejercicio?.url_youtube
+  );
 
   return (
     <TouchableOpacity
@@ -79,11 +87,52 @@ function EjercicioRow({
           </Text>
         ) : null}
       </View>
-      {ejercicio.id_video ? (
+      {tieneVideo ? (
         <View style={[styles.videoPill, { backgroundColor: `${colors.tint}14` }]}>
           <Ionicons name="play-circle" size={14} color={colors.tint} />
           <Text style={[styles.videoPillText, { color: colors.tint }]}>Video</Text>
         </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+function DiaGrupoHeader({
+  titulo,
+  numBloques,
+  numEjercicios,
+  expanded,
+  onToggle,
+}: {
+  titulo: string;
+  numBloques: number;
+  numEjercicios: number;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <TouchableOpacity
+      style={[styles.diaHeader, { borderBottomColor: colors.separator }]}
+      onPress={onToggle}
+      activeOpacity={0.75}
+    >
+      <Ionicons
+        name="chevron-forward"
+        size={18}
+        color={colors.secondaryLabel}
+        style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
+      />
+      <Text style={[styles.diaHeaderTitle, { color: colors.label }]}>{titulo}</Text>
+      <View style={[styles.diaCountPill, { backgroundColor: colors.tertiaryGroupedBackground }]}>
+        <Text style={[styles.diaCountText, { color: colors.secondaryLabel }]}>
+          {numBloques} {numBloques === 1 ? 'bloque' : 'bloques'}
+        </Text>
+      </View>
+      {numEjercicios > 0 ? (
+        <Text style={[styles.diaEjCount, { color: colors.secondaryLabel }]}>
+          · {numEjercicios} ej.
+        </Text>
       ) : null}
     </TouchableOpacity>
   );
@@ -110,8 +159,7 @@ function BloqueCard({
 }) {
   const { colors } = useAppTheme();
   const stripColor = resolveBlockColor(bloque);
-  const ejercicios = bloque.ejercicios || [];
-  const diaNombre = getDiaSemanaLabel(bloque.dia_semana);
+  const ejercicios = filterListableEjercicios(bloque.ejercicios);
 
   return (
     <View style={[styles.bloqueCard, { borderColor: colors.separator }]}>
@@ -137,7 +185,6 @@ function BloqueCard({
             </Text>
           ) : null}
           <Text style={styles.bloqueCount}>
-            {diaNombre ? `${diaNombre} · ` : ''}
             {ejercicios.length} {ejercicios.length === 1 ? 'ejercicio' : 'ejercicios'}
           </Text>
         </View>
@@ -202,6 +249,7 @@ export default function PlanDetailScreen() {
   const [planData, setPlanData] = useState<PlanWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedBloques, setExpandedBloques] = useState<Set<string>>(new Set());
+  const [expandedDias, setExpandedDias] = useState<Set<string>>(new Set());
   const [showAddBloque, setShowAddBloque] = useState(false);
   const [ejercicioTarget, setEjercicioTarget] = useState<{ planBloqueId: string; nombre: string } | null>(
     null
@@ -241,6 +289,8 @@ export default function PlanDetailScreen() {
                   initialDescripcion: plan.descripcion ?? '',
                   initialSemanas: plan.semanas,
                   initialObjetivo: plan.objetivo_semanal ?? '',
+                  initialObservaciones: plan.observaciones ?? '',
+                  initialNumero: plan.numero,
                   initialTipoPlanId: plan.id_tipo_plan ?? plan.tipo_plan?.id ?? '',
                 })
               }
@@ -263,7 +313,41 @@ export default function PlanDetailScreen() {
     });
   };
 
+  const toggleDia = (key: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedDias((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const bloques = useMemo(() => (planData ? normalizeBloques(planData) : []), [planData]);
+  const bloquesPorDia = useMemo(
+    () => (planData ? resolveBloquesAgrupados(planData) : []),
+    [planData]
+  );
+  const mostrarAgrupacionPorDia = useMemo(
+    () => (planData ? planMostrarAgrupacionPorDia(planData.bloques_por_dia, bloques) : false),
+    [planData, bloques]
+  );
+
+  useEffect(() => {
+    if (!mostrarAgrupacionPorDia) return;
+    setExpandedDias(new Set(bloquesPorDia.map((g) => diaGrupoKey(g.dia_semana))));
+  }, [mostrarAgrupacionPorDia, bloquesPorDia]);
+
+  const didAutoExpandBloque = useRef(false);
+
+  useEffect(() => {
+    if (didAutoExpandBloque.current || bloques.length === 0) return;
+    const firstConEj = bloques.find((b) => filterListableEjercicios(b.ejercicios).length > 0);
+    if (firstConEj?.id) {
+      setExpandedBloques(new Set([firstConEj.id]));
+      didAutoExpandBloque.current = true;
+    }
+  }, [bloques]);
   const heroAccent = useMemo(
     () => resolveBlockColor(bloques[0] ?? null),
     [bloques]
@@ -377,32 +461,56 @@ export default function PlanDetailScreen() {
             </Text>
           </View>
         ) : (
-          bloques.map((bloque, index) => {
-            const bloqueId = bloque.id || `bloque-${index}`;
-            const planBloqueId = bloque.id_plan_bloque ?? bloque.id_fila_plan_bloque ?? '';
-            const isExpanded = expandedBloques.has(bloqueId);
+          bloquesPorDia.map((grupo) => {
+            const grupoKey = diaGrupoKey(grupo.dia_semana);
+            const diaExpanded = !mostrarAgrupacionPorDia || expandedDias.has(grupoKey);
+            const ejerciciosEnGrupo = grupo.bloques.reduce(
+              (n, b) => n + filterListableEjercicios(b.ejercicios).length,
+              0
+            );
 
             return (
-              <BloqueCard
-                key={bloqueId}
-                bloque={bloque}
-                bloqueId={bloqueId}
-                planBloqueId={planBloqueId}
-                isExpanded={isExpanded}
-                canManage={canManage}
-                onToggle={() => toggleBloque(bloqueId)}
-                onAddEjercicio={() =>
-                  setEjercicioTarget({ planBloqueId, nombre: bloque.nombre })
-                }
-                onEjercicioPress={(ej) =>
-                  navigation.navigate('PlanEjercicioDetail', {
-                    planId,
-                    planBloqueId: planBloqueId || undefined,
-                    bloqueNombre: bloque.nombre,
-                    ejercicio: ej,
-                  })
-                }
-              />
+              <View key={grupoKey} style={styles.diaGrupo}>
+                {mostrarAgrupacionPorDia ? (
+                  <DiaGrupoHeader
+                    titulo={tituloGrupoDiaSemana(grupo.dia_semana, grupo.dia_semana_nombre)}
+                    numBloques={grupo.bloques.length}
+                    numEjercicios={ejerciciosEnGrupo}
+                    expanded={diaExpanded}
+                    onToggle={() => toggleDia(grupoKey)}
+                  />
+                ) : null}
+                {diaExpanded
+                  ? grupo.bloques.map((bloque, index) => {
+                      const bloqueId = bloque.id || `${grupoKey}-bloque-${index}`;
+                      const planBloqueId = referencePlanBloqueId(bloque) ?? '';
+                      const isExpanded = expandedBloques.has(bloqueId);
+
+                      return (
+                        <BloqueCard
+                          key={bloqueId}
+                          bloque={bloque}
+                          bloqueId={bloqueId}
+                          planBloqueId={planBloqueId}
+                          isExpanded={isExpanded}
+                          canManage={canManage}
+                          onToggle={() => toggleBloque(bloqueId)}
+                          onAddEjercicio={() =>
+                            setEjercicioTarget({ planBloqueId, nombre: bloque.nombre })
+                          }
+                          onEjercicioPress={(ej) =>
+                            navigation.navigate('PlanEjercicioDetail', {
+                              planId,
+                              planBloqueId: planBloqueId || undefined,
+                              bloqueNombre: bloque.nombre,
+                              ejercicio: ej,
+                            })
+                          }
+                        />
+                      );
+                    })
+                  : null}
+              </View>
             );
           })
         )}
@@ -646,4 +754,34 @@ const styles = StyleSheet.create({
   },
   addEjercicioText: { fontSize: 14, fontWeight: '600' },
   warnText: { fontSize: 12, textAlign: 'center', paddingBottom: 8 },
+  diaGrupo: { marginBottom: 4 },
+  diaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  diaHeaderTitle: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  diaCountPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  diaCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  diaEjCount: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
 });

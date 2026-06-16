@@ -65,6 +65,8 @@ export type PlanesStackParamList = {
     initialDescripcion?: string;
     initialSemanas?: number | null;
     initialObjetivo?: string;
+    initialObservaciones?: string;
+    initialNumero?: number | null;
     initialTipoPlanId?: string;
   };
 };

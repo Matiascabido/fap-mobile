@@ -35,6 +35,7 @@ export interface Bloque {
 export interface PlanBloqueRelacion {
   id?: string | null;
   id_plan_bloque?: string | null;
+  id_fila_plan_bloque?: string | null;
   orden?: number | null;
   dia_semana?: number | null;
   bloque: Bloque;

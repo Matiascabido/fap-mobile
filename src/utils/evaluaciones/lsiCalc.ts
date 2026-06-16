@@ -4,7 +4,7 @@ import type {
   PruebaFormValues,
   ValorFormState,
 } from '../../types/evaluaciones.types';
-import { flattenCamposParaValidacion } from './evaluacionValores';
+import { flattenCamposParaValidacion } from './campoTree';
 
 function norm(s: string): string {
   return s

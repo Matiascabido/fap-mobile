@@ -166,3 +166,23 @@ export function normalizePruebaDetalleCampos(detalle: {
 }): EvaluacionCampoResponse[] {
   return normalizeCamposTree(detalle.campos ?? []);
 }
+
+/** Lista plana de campos hoja (sin contenedores) para validación y payloads. */
+export function flattenCamposParaValidacion(campos: EvaluacionCampoResponse[]): EvaluacionCampoResponse[] {
+  const out: EvaluacionCampoResponse[] = [];
+  const seen = new Set<string>();
+  const walk = (list: EvaluacionCampoResponse[]) => {
+    for (const c of list) {
+      if (c.tipo_valor === 'CONTENEDOR') {
+        if (c.hijos?.length) walk(c.hijos);
+        continue;
+      }
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push(c);
+      if (c.hijos?.length) walk(c.hijos);
+    }
+  };
+  walk(campos);
+  return out;
+}

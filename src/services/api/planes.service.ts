@@ -20,6 +20,34 @@ function normalizePlanesListPayload(raw: unknown): PlanWithRelations[] {
   return [];
 }
 
+function normalizeTiposListPayload(raw: unknown): TipoPlan[] {
+  if (Array.isArray(raw)) return raw as TipoPlan[];
+  if (raw && typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    if (Array.isArray(o.items)) return o.items as TipoPlan[];
+    if (Array.isArray(o.data)) return o.data as TipoPlan[];
+  }
+  return [];
+}
+
+function normalizeTipoPlan(raw: unknown): TipoPlan | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const id = o.id != null ? String(o.id).trim() : '';
+  const nombre_tipo =
+    typeof o.nombre_tipo === 'string' && o.nombre_tipo.trim()
+      ? o.nombre_tipo.trim()
+      : typeof o.nombre === 'string' && o.nombre.trim()
+        ? o.nombre.trim()
+        : '';
+  if (!id || !nombre_tipo) return null;
+  return { id, nombre_tipo };
+}
+
+export interface CreateTipoPlanDTO {
+  nombre_tipo: string;
+}
+
 export interface PlanCreateDTO {
   numero: number;
   nombre_plan: string;
@@ -59,11 +87,19 @@ export const planesService = {
   },
 
   async getTipos(): Promise<TipoPlan[]> {
-    const data = await apiFetch<TipoPlan[] | { items?: TipoPlan[] }>('/planes/tipos', {
+    const data = await apiFetch<unknown>(`/planes/tipos?${buildListQuery()}`, {
       method: 'GET',
     });
-    if (Array.isArray(data)) return data;
-    return (data as { items?: TipoPlan[] }).items ?? [];
+    return normalizeTiposListPayload(data);
+  },
+
+  async createTipoPlan(dto: CreateTipoPlanDTO): Promise<TipoPlan> {
+    const raw = await apiFetch<unknown>('/planes/tipos', { method: 'POST', data: dto });
+    const created = normalizeTipoPlan(raw);
+    if (!created) {
+      throw new Error('El servidor no devolvió el tipo de plan creado.');
+    }
+    return created;
   },
 
   async create(dto: PlanCreateDTO): Promise<unknown> {
@@ -84,15 +120,17 @@ export const planesService = {
     });
   },
 
+  async removeBloque(planId: string, planBloqueId: string): Promise<void> {
+    return apiFetch(
+      `/planes/${encodeURIComponent(planId)}/plan-bloques/${encodeURIComponent(planBloqueId)}`,
+      { method: 'DELETE' }
+    );
+  },
+
   async addEjercicioToBloque(
     planId: string,
     planBloqueId: string,
-    payload: {
-      id_ejercicio: string;
-      series?: string | null;
-      reps?: string | null;
-      peso?: string | null;
-    }
+    payload: { id_ejercicio: string }
   ): Promise<unknown> {
     return apiFetch(
       `/planes/${encodeURIComponent(planId)}/plan-bloques/${encodeURIComponent(planBloqueId)}/ejercicios`,

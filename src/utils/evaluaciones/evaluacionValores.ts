@@ -9,7 +9,10 @@ import type {
   TipoValorEvaluacion,
   ValorFormState,
 } from '../../types/evaluaciones.types';
+import { flattenCamposParaValidacion } from './campoTree';
 import { computeLsiFromRegistro, formatLsiRatio, parseNumericValue } from './lsiCalc';
+
+export { flattenCamposParaValidacion };
 
 /** Enteros sin decimales; hasta 2 decimales si corresponde. */
 export function formatNumericForDisplay(raw: string | number | null | undefined): string {
@@ -63,25 +66,6 @@ export function lateralidadOptionsFromCampo(
     if (mapped.length > 0) return mapped;
   }
   return LATERALIDAD_STD_OPTS;
-}
-
-export function flattenCamposParaValidacion(campos: EvaluacionCampoResponse[]): EvaluacionCampoResponse[] {
-  const out: EvaluacionCampoResponse[] = [];
-  const seen = new Set<string>();
-  const walk = (list: EvaluacionCampoResponse[]) => {
-    for (const c of list) {
-      if (c.tipo_valor === 'CONTENEDOR') {
-        if (c.hijos?.length) walk(c.hijos);
-        continue;
-      }
-      if (seen.has(c.id)) continue;
-      seen.add(c.id);
-      out.push(c);
-      if (c.hijos?.length) walk(c.hijos);
-    }
-  };
-  walk(campos);
-  return out;
 }
 
 export function isValorFilled(campo: EvaluacionCampoResponse, state: ValorFormState | undefined): boolean {

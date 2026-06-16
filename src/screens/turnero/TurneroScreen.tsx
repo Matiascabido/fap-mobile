@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -26,6 +27,8 @@ import { HttpRequestError, UnauthorizedSessionError } from '../../services/api/h
 import { TurnoResponse } from '../../types/turnero.types';
 import { weekRangeQueryParams } from '../../utils/dateRange';
 import CrearTurnoModal from '../../components/turnero/CrearTurnoModal';
+import TurnoDetailModal from '../../components/turnero/TurnoDetailModal';
+import { mapTurnoToDetalle } from '../../utils/turnoMapper';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -50,6 +53,8 @@ export default function TurneroScreen() {
   const [loadError, setLoadError] = useState('');
   const [showCrearTurno, setShowCrearTurno] = useState(false);
   const [inscribiendo, setInscribiendo] = useState<string | null>(null);
+  const [selectedTurno, setSelectedTurno] = useState<TurnoResponse | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
   const daysScrollRef = useRef<ScrollView>(null);
 
   const bgColor = isDark ? palette.darkBg : palette.slate50;
@@ -173,12 +178,50 @@ export default function TurneroScreen() {
         await turneroService.inscribir(turno.id_turno);
       }
       await loadTurnos();
+      if (selectedTurno?.id_turno === turno.id_turno) {
+        try {
+          const fresh = await turneroService.getById(turno.id_turno);
+          setSelectedTurno(fresh);
+        } catch {
+          /* mantener turno anterior */
+        }
+      }
     } catch {
       // Error mostrado en interceptor
     } finally {
       setInscribiendo(null);
     }
   };
+
+  const openDetail = (turno: TurnoResponse) => {
+    setSelectedTurno(turno);
+    setShowDetail(true);
+  };
+
+  const handleDeleteTurno = (id: string) => {
+    Alert.alert('Eliminar turno', '¿Confirmás que querés eliminar este turno?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await turneroService.delete(id);
+            setShowDetail(false);
+            setSelectedTurno(null);
+            await loadTurnos();
+          } catch {
+            /* interceptor */
+          }
+        },
+      },
+    ]);
+  };
+
+  const detailVista = useMemo(() => {
+    if (!selectedTurno) return null;
+    return mapTurnoToDetalle(selectedTurno, isInscripto(selectedTurno));
+  }, [selectedTurno, user]);
 
   // Indicadores contextuales
   const showRoleBadge = canManage;
@@ -339,8 +382,10 @@ export default function TurneroScreen() {
                 const isLoadingAction = inscribiendo === turno.id_turno;
 
                 return (
-                  <View
+                  <TouchableOpacity
                     key={turno.id_turno}
+                    activeOpacity={0.9}
+                    onPress={() => openDetail(turno)}
                     style={[
                       styles.turnoCard,
                       { backgroundColor: isDark ? palette.slate800 : palette.slate50, borderColor },
@@ -402,54 +447,70 @@ export default function TurneroScreen() {
                       {turno.serie && <Badge label="Recurrente" variant="info" />}
                     </View>
 
-                    {/* Botón inscribirse (solo socios/entrenados) */}
-                    {!turno.cancelado && canEnroll && (
+                    {/* Acciones */}
+                    <View style={styles.turnoActions}>
+                      {!turno.cancelado && canEnroll ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.inscribirButton,
+                            styles.actionBtnFlex,
+                            inscripto
+                              ? styles.inscribirButtonOutline
+                              : sinCupos
+                              ? styles.inscribirButtonDisabled
+                              : styles.inscribirButtonPrimary,
+                          ]}
+                          onPress={(e) => {
+                            e?.stopPropagation?.();
+                            handleInscripcion(turno);
+                          }}
+                          disabled={isLoadingAction || (sinCupos && !inscripto)}
+                        >
+                          {isLoadingAction ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={inscripto ? palette.success : '#FFFFFF'}
+                            />
+                          ) : (
+                            <Text
+                              style={[
+                                styles.inscribirText,
+                                {
+                                  color: inscripto
+                                    ? palette.success
+                                    : sinCupos
+                                    ? palette.slate400
+                                    : '#FFFFFF',
+                                },
+                              ]}
+                            >
+                              {inscripto ? 'Desuscribirme' : sinCupos ? 'Sin cupos' : 'Inscribirme'}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      ) : null}
+
                       <TouchableOpacity
-                        style={[
-                          styles.inscribirButton,
-                          inscripto
-                            ? styles.inscribirButtonOutline
-                            : sinCupos
-                            ? styles.inscribirButtonDisabled
-                            : styles.inscribirButtonPrimary,
-                        ]}
-                        onPress={() => handleInscripcion(turno)}
-                        disabled={isLoadingAction || (sinCupos && !inscripto)}
+                        style={[styles.verDetalleBtn, { borderColor }]}
+                        onPress={(e) => {
+                          e?.stopPropagation?.();
+                          openDetail(turno);
+                        }}
                       >
-                        {isLoadingAction ? (
-                          <ActivityIndicator
-                            size="small"
-                            color={inscripto ? palette.success : '#FFFFFF'}
-                          />
-                        ) : (
-                          <Text
-                            style={[
-                              styles.inscribirText,
-                              {
-                                color: inscripto
-                                  ? palette.success
-                                  : sinCupos
-                                  ? palette.slate400
-                                  : '#FFFFFF',
-                              },
-                            ]}
-                          >
-                            {inscripto ? 'Desuscribirme' : sinCupos ? 'Sin cupos' : 'Inscribirme'}
-                          </Text>
-                        )}
+                        <Text style={[styles.verDetalleText, { color: textPrimary }]}>Ver detalle</Text>
                       </TouchableOpacity>
-                    )}
+                    </View>
 
                     {/* Acción staff: ver inscriptos */}
-                    {canManage && inscriptos > 0 && (
+                    {canManage && inscriptos > 0 ? (
                       <View style={[styles.staffInfo, { borderTopColor: borderColor }]}>
                         <MaterialCommunityIcons name="account-group" size={14} color={textSecondary} />
                         <Text style={[styles.staffInfoText, { color: textSecondary }]}>
                           {inscriptos} {inscriptos === 1 ? 'persona inscripta' : 'personas inscriptas'}
                         </Text>
                       </View>
-                    )}
-                  </View>
+                    ) : null}
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -462,6 +523,23 @@ export default function TurneroScreen() {
         selectedDay={selectedDay}
         onClose={() => setShowCrearTurno(false)}
         onCreated={loadTurnos}
+      />
+
+      <TurnoDetailModal
+        visible={showDetail}
+        turno={detailVista}
+        canEnroll={canEnroll}
+        canManage={canManage}
+        inscripcionEnProceso={!!inscribiendo && inscribiendo === selectedTurno?.id_turno}
+        onClose={() => {
+          setShowDetail(false);
+          setSelectedTurno(null);
+        }}
+        onToggleSubscription={(id) => {
+          const t = turnos.find((x) => x.id_turno === id) ?? selectedTurno;
+          if (t) void handleInscripcion(t);
+        }}
+        onDelete={canManage ? handleDeleteTurno : undefined}
       />
     </View>
   );
@@ -564,10 +642,22 @@ const styles = StyleSheet.create({
   cupoFill: { height: '100%', borderRadius: 999 },
   turnoCuposText: { fontSize: 12, marginTop: 4, fontWeight: '600' },
   turnoBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  turnoActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  actionBtnFlex: { flex: 1, marginTop: 0 },
   inscribirButton: {
     marginTop: 12, paddingVertical: 12, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center', minHeight: 44,
   },
+  verDetalleBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  verDetalleText: { fontSize: 13, fontWeight: '700' },
   inscribirButtonPrimary: { backgroundColor: palette.primary },
   inscribirButtonOutline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: palette.success },
   inscribirButtonDisabled: { backgroundColor: palette.slate200 },

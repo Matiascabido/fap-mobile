@@ -92,4 +92,8 @@ export const turneroService = {
       ctx
     );
   },
+
+  async delete(idTurno: string): Promise<void> {
+    return apiFetch(`/turnos/${encodeURIComponent(idTurno)}`, { method: 'DELETE' });
+  },
 };
