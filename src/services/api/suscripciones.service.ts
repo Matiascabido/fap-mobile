@@ -8,6 +8,7 @@ import {
   calcularEstadoSuscripcion as estadoDesdeFecha,
   diasHastaVencimiento as diasDesdeFecha,
 } from '../../utils/fechasAlertas';
+import { fechaVencimientoSuscripcion } from '../../utils/suscripcionFecha';
 
 export function suscripcionSocio(s: SuscripcionData): SuscripcionParticipante {
   return s.usuario_socio ?? s.socio ?? s.usuario;
@@ -26,12 +27,12 @@ export function nombreParticipante(p?: SuscripcionParticipante | null): string {
 }
 
 export function calcularEstadoSuscripcion(s: SuscripcionData): SuscripcionEstado {
-  return estadoDesdeFecha(s.fecha_vencimiento);
+  return estadoDesdeFecha(fechaVencimientoSuscripcion(s));
 }
 
 export function diasHastaVencimiento(s: SuscripcionData): number {
-  const dias = diasDesdeFecha(s.fecha_vencimiento);
-  return dias ?? -9999;
+  const dias = diasDesdeFecha(fechaVencimientoSuscripcion(s));
+  return dias ?? 0;
 }
 
 export interface CreateSuscripcionDTO {

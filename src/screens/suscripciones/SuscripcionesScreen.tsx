@@ -26,6 +26,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatDate, formatCurrency } from '../../utils/formatters';
+import { fechaVencimientoSuscripcion } from '../../utils/suscripcionFecha';
 import { matchSearch } from '../../utils/searchNormalize';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
@@ -116,6 +117,7 @@ export default function SuscripcionesScreen() {
     ({ item }: { item: SuscripcionData }) => {
       const socio = suscripcionSocio(item);
       const profesional = suscripcionProfesional(item);
+      const fechaVenc = fechaVencimientoSuscripcion(item);
       const estado = calcularEstadoSuscripcion(item);
       const dias = diasHastaVencimiento(item);
       const config = ESTADO_CONFIG[estado];
@@ -142,7 +144,7 @@ export default function SuscripcionesScreen() {
             <View style={styles.cardBodyItem}>
               <Text style={[styles.bodyLabel, { color: textSecondary }]}>Vencimiento</Text>
               <Text style={[styles.bodyValue, { color: textPrimary }]}>
-                {formatDate(item.fecha_vencimiento)}
+                {formatDate(fechaVenc)}
               </Text>
               <Text
                 style={[

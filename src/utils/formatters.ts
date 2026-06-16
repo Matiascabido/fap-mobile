@@ -5,15 +5,12 @@ import { parseFechaLocal } from './fechasAlertas';
 /**
  * Formatea una fecha ISO a formato legible en español
  */
-export function formatDate(dateInput: string | Date, pattern = 'dd/MM/yyyy'): string {
+export function formatDate(dateInput: string | Date | null | undefined, pattern = 'dd/MM/yyyy'): string {
   try {
+    if (dateInput == null) return '-';
     let date: Date | null = null;
     if (typeof dateInput === 'string') {
       date = parseFechaLocal(dateInput);
-      if (!date) {
-        const iso = parseISO(dateInput);
-        date = isValid(iso) ? iso : null;
-      }
     } else {
       date = dateInput;
     }
@@ -50,8 +47,11 @@ export function formatLongDate(dateInput: string | Date): string {
  */
 export function formatRelativeTime(dateInput: string | Date): string {
   try {
-    const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
-    if (!isValid(date)) return '-';
+    const date =
+      typeof dateInput === 'string'
+        ? parseFechaLocal(dateInput) ?? (isValid(parseISO(dateInput)) ? parseISO(dateInput) : null)
+        : dateInput;
+    if (!date || !isValid(date)) return '-';
     return formatDistanceToNow(date, { locale: es, addSuffix: true });
   } catch {
     return '-';
@@ -120,9 +120,7 @@ export function toIsoDateString(date: Date): string {
 
 /** Parsea YYYY-MM-DD de forma segura */
 export function parseIsoDateString(value: string | null | undefined): Date | null {
-  if (!value?.trim()) return null;
-  const d = parseISO(value.trim());
-  return isValid(d) ? d : null;
+  return parseFechaLocal(value);
 }
 
 /** Hora en formato HH:mm */

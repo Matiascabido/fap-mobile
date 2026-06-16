@@ -1,6 +1,9 @@
 /**
- * Utilidades de fechas para alertas de suscripciones y planes (calendario local AR).
+ * Parseo de fechas de calendario (AR) sin depender del locale del motor JS.
+ * Una sola fuente para display y lógica de vencimiento.
  */
+
+import { parseISO, isValid } from 'date-fns';
 
 function startOfLocalDay(d: Date): Date {
   const x = new Date(d);
@@ -8,14 +11,53 @@ function startOfLocalDay(d: Date): Date {
   return x;
 }
 
-/** Parsea ISO o `YYYY-MM-DD` a fecha local medianoche (ignora hora UTC del suffix `T…`). */
+function dateFromParts(year: number, month: number, day: number): Date | null {
+  if (year < 1900 || year > 2200) return null;
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > 31) return null;
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
+    return null;
+  }
+  return startOfLocalDay(d);
+}
+
+/**
+ * Parsea fechas ISO, `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY` y datetime con `T` o espacio.
+ */
 export function parseFechaLocal(raw: string | null | undefined): Date | null {
   const s = raw?.trim();
   if (!s) return null;
-  const ymd = s.includes('T') ? s.split('T')[0]! : s.slice(0, 10);
-  const d = new Date(ymd.replace(/-/g, '/'));
-  if (Number.isNaN(d.getTime())) return null;
-  return startOfLocalDay(d);
+
+  // YYYY-MM-DD (también dentro de datetime)
+  const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    return dateFromParts(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  }
+
+  // DD/MM/YYYY o DD-MM-YYYY
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    return dateFromParts(Number(dmy[3]), Number(dmy[2]), Number(dmy[1]));
+  }
+
+  // Fallback date-fns (ISO completo con zona horaria)
+  try {
+    const parsed = parseISO(s);
+    if (isValid(parsed)) {
+      return startOfLocalDay(parsed);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // Último intento: motor nativo
+  const native = new Date(s.includes('T') ? s : s.replace(/-/g, '/'));
+  if (!Number.isNaN(native.getTime())) {
+    return startOfLocalDay(native);
+  }
+
+  return null;
 }
 
 /** Días enteros desde hoy (0=hoy) hasta `target`. Negativo si ya pasó. */
@@ -31,7 +73,6 @@ export function diasHastaVencimiento(fechaVencimiento: string | null | undefined
   return diasHastaFecha(end);
 }
 
-/** Vigente: hoy ≤ vencimiento */
 export function suscripcionEstaVigente(fechaVencimiento: string | null | undefined): boolean {
   const dias = diasHastaVencimiento(fechaVencimiento);
   return dias != null && dias >= 0;
@@ -57,7 +98,8 @@ export function calcularEstadoSuscripcion(
   fechaVencimiento: string | null | undefined
 ): EstadoSuscripcion {
   const dias = diasHastaVencimiento(fechaVencimiento);
-  if (dias == null) return 'vencida';
+  // Si no se puede parsear, no asumir vencida (evita falsos positivos)
+  if (dias == null) return 'vigente';
   if (dias < 0) return 'vencida';
   if (dias <= 7) return 'por_vencer';
   return 'vigente';
