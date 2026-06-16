@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import {
   Modal,
   View,
@@ -21,6 +21,7 @@ import {
   buildYouTubeEmbedHtml,
   getYouTubeEmbedOrigin,
   resolveYouTubeVideoId,
+  shouldAllowYouTubeWebViewNavigation,
 } from '../../utils/youtubeEmbed';
 import { useVideoFeed } from '../../context/VideoFeedContext';
 import { hapticSelection } from '../../utils/haptics';
@@ -35,7 +36,7 @@ interface ExerciseVideoFeedProps {
   onIndexChange?: (index: number) => void;
 }
 
-function VideoPage({
+const VideoPage = memo(function VideoPage({
   item,
   isActive,
   height,
@@ -44,6 +45,7 @@ function VideoPage({
   isActive: boolean;
   height: number;
 }) {
+  const webViewRef = useRef<WebView>(null);
   const origin = useMemo(() => getYouTubeEmbedOrigin(), []);
   const resolvedVideoId = useMemo(
     () =>
@@ -52,8 +54,19 @@ function VideoPage({
         embedUrl: item.embedUrl,
         videoUrl: item.videoUrl,
       }),
-    [item]
+    [item.videoId, item.embedUrl, item.videoUrl]
   );
+  const [mounted, setMounted] = useState(isActive);
+
+  useEffect(() => {
+    if (isActive) setMounted(true);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!mounted || !resolvedVideoId) return;
+    const cmd = isActive ? 'playVideo' : 'pauseVideo';
+    webViewRef.current?.injectJavaScript(`window.${cmd} && window.${cmd}(); true;`);
+  }, [isActive, mounted, resolvedVideoId]);
 
   if (!resolvedVideoId) {
     return (
@@ -65,16 +78,22 @@ function VideoPage({
     );
   }
 
+  const autoplayMuted = Platform.OS === 'android';
+
   return (
     <View style={[styles.page, { height }]}>
-      {isActive ? (
+      {mounted ? (
         <WebView
-          key={`${item.id}-${resolvedVideoId}`}
+          ref={webViewRef}
+          key={resolvedVideoId}
           source={{
-            html: buildYouTubeEmbedHtml(resolvedVideoId, origin, { autoplay: true, mute: false }),
+            html: buildYouTubeEmbedHtml(resolvedVideoId, origin, {
+              autoplay: true,
+              mute: autoplayMuted,
+            }),
             baseUrl: origin,
           }}
-          style={styles.webview}
+          style={[styles.webview, !isActive && styles.webviewHidden]}
           originWhitelist={['https://*']}
           javaScriptEnabled
           domStorageEnabled
@@ -82,6 +101,11 @@ function VideoPage({
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
           setSupportMultipleWindows={false}
+          androidLayerType="hardware"
+          cacheEnabled={false}
+          onShouldStartLoadWithRequest={(request) =>
+            shouldAllowYouTubeWebViewNavigation(request.url, origin)
+          }
           startInLoadingState
           renderLoading={() => (
             <View style={styles.loading}>
@@ -94,7 +118,7 @@ function VideoPage({
       )}
     </View>
   );
-}
+});
 
 export default function ExerciseVideoFeed({
   visible,
@@ -107,8 +131,18 @@ export default function ExerciseVideoFeed({
   const { setVideoFeedOpen } = useVideoFeed();
   const listRef = useRef<FlatList<VideoFeedItem>>(null);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 85 }).current;
 
   const pageHeight = SCREEN_HEIGHT;
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      const next = viewableItems[0]?.index;
+      if (next != null && next >= 0) {
+        setCurrentIndex((prev) => (prev === next ? prev : next));
+      }
+    }
+  ).current;
 
   useEffect(() => {
     setVideoFeedOpen(visible);
@@ -169,11 +203,16 @@ export default function ExerciseVideoFeed({
             offset: pageHeight * index,
             index,
           })}
+          viewabilityConfig={viewabilityConfig}
+          onViewableItemsChanged={onViewableItemsChanged}
+          overScrollMode="never"
           onMomentumScrollEnd={(e) => {
             const index = Math.round(e.nativeEvent.contentOffset.y / pageHeight);
-            if (index !== currentIndex && index >= 0 && index < items.length) {
-              setCurrentIndex(index);
-              onIndexChange?.(index);
+            if (index >= 0 && index < items.length) {
+              setCurrentIndex((prev) => {
+                if (prev !== index) onIndexChange?.(index);
+                return index;
+              });
             }
           }}
           renderItem={({ item, index }) => (
@@ -275,6 +314,7 @@ const styles = StyleSheet.create({
   page: { width: '100%', backgroundColor: '#000' },
   inactivePage: { flex: 1, backgroundColor: '#000' },
   webview: { flex: 1, backgroundColor: '#000' },
+  webviewHidden: { opacity: 0, pointerEvents: 'none' },
   loading: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',

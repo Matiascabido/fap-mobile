@@ -7,16 +7,18 @@ import {
   TextInput,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { planesService } from '../../services/api/planes.service';
 import { PlanWithRelations } from '../../types/planes.types';
 import { useAppTheme } from '../../context/ThemeContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
+import { typography } from '../../theme/iosTheme';
 import { useDebounce } from '../../hooks/useDebounce';
-import Badge from '../../components/common/Badge';
+import PlanListCard from '../../components/planes/PlanListCard';
 import Loader from '../../components/common/Loader';
 import EmptyState from '../../components/common/EmptyState';
 
@@ -24,7 +26,7 @@ type EstadoFilter = 'todos' | 'activos' | 'finalizados';
 
 export default function PlanesListScreen() {
   const navigation = useNavigation<any>();
-  const { isDark, colors } = useAppTheme();
+  const { colors } = useAppTheme();
   const { canManagePlanes } = usePermissions();
   const canManage = canManagePlanes();
 
@@ -35,12 +37,6 @@ export default function PlanesListScreen() {
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>('todos');
 
   const debouncedSearch = useDebounce(search, 400);
-
-  const bgColor = colors.groupedBackground;
-  const cardBg = isDark ? palette.darkCard : '#FFFFFF';
-  const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
-  const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
-  const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
 
   const loadPlanes = useCallback(async () => {
     try {
@@ -70,8 +66,14 @@ export default function PlanesListScreen() {
       const term = debouncedSearch.toLowerCase().trim();
       result = result.filter((p) => {
         const nombrePlan = p.plan?.nombre_plan?.toLowerCase() || '';
-        const nombreSocio = p.asignaciones?.[0]?.nombre_socio?.toLowerCase() || '';
-        return nombrePlan.includes(term) || nombreSocio.includes(term);
+        const objetivo = p.plan?.objetivo_semanal?.toLowerCase() || '';
+        const tipo = p.plan?.tipo_plan?.nombre_tipo?.toLowerCase() || '';
+        const buscarEnAsignaciones = p.asignaciones?.some((a) => {
+          const socio = (a.nombre_socio || `${a.socio?.nombre ?? ''} ${a.socio?.apellido ?? ''}`).toLowerCase();
+          const prof = (a.nombre_profesional || `${a.profesional?.nombre ?? ''} ${a.profesional?.apellido ?? ''}`).toLowerCase();
+          return socio.includes(term) || prof.includes(term);
+        });
+        return nombrePlan.includes(term) || objetivo.includes(term) || tipo.includes(term) || buscarEnAsignaciones;
       });
     }
 
@@ -86,136 +88,117 @@ export default function PlanesListScreen() {
   }, [planes, debouncedSearch, estadoFilter]);
 
   const renderPlan = useCallback(
-    ({ item }: { item: PlanWithRelations }) => {
-      const plan = item.plan;
-      const asignacion = item.asignaciones?.[0];
-      const isActive = item.activo ?? item.asignaciones?.some((a) => a.activo) ?? false;
-      const nombreSocio =
-        asignacion?.nombre_socio ||
-        (asignacion?.socio
-          ? `${asignacion.socio.nombre ?? ''} ${asignacion.socio.apellido ?? ''}`.trim()
-          : null);
-      const nombreProfesional =
-        asignacion?.nombre_profesional ||
-        (asignacion?.profesional
-          ? `${asignacion.profesional.nombre ?? ''} ${asignacion.profesional.apellido ?? ''}`.trim()
-          : null);
-      const numBloques = item.bloques?.length || 0;
-
-      return (
-        <TouchableOpacity
-          style={[styles.planCard, { backgroundColor: cardBg, borderColor }]}
-          onPress={() => navigation.navigate('PlanDetail', { planId: plan.id })}
-          activeOpacity={0.7}
-        >
-          <View style={styles.planHeader}>
-            <View style={styles.planIconContainer}>
-              <MaterialCommunityIcons name="dumbbell" size={24} color={palette.primary} />
-            </View>
-            <View style={styles.planHeaderInfo}>
-              <Text style={[styles.planNombre, { color: textPrimary }]} numberOfLines={1}>
-                {plan.nombre_plan}
-              </Text>
-              {plan.tipo_plan?.nombre_tipo ? (
-                <Text style={[styles.planTipo, { color: textSecondary }]}>
-                  {plan.tipo_plan.nombre_tipo}
-                </Text>
-              ) : null}
-            </View>
-            <Badge
-              label={isActive ? 'Activo' : 'Finalizado'}
-              variant={isActive ? 'success' : 'neutral'}
-            />
-          </View>
-
-          <View style={styles.planBody}>
-            {nombreSocio ? (
-              <View style={styles.planRow}>
-                <MaterialCommunityIcons name="account" size={14} color={textSecondary} />
-                <Text style={[styles.planRowText, { color: textSecondary }]} numberOfLines={1}>
-                  {nombreSocio}
-                </Text>
-              </View>
-            ) : null}
-            {nombreProfesional ? (
-              <View style={styles.planRow}>
-                <MaterialCommunityIcons name="whistle" size={14} color={textSecondary} />
-                <Text style={[styles.planRowText, { color: textSecondary }]} numberOfLines={1}>
-                  Prof: {nombreProfesional}
-                </Text>
-              </View>
-            ) : null}
-            <View style={styles.planRow}>
-              <MaterialCommunityIcons name="view-grid" size={14} color={textSecondary} />
-              <Text style={[styles.planRowText, { color: textSecondary }]}>
-                {numBloques} {numBloques === 1 ? 'bloque' : 'bloques'}
-                {plan.semanas ? ` · ${plan.semanas} semanas` : ''}
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      );
-    },
-    [cardBg, borderColor, textPrimary, textSecondary, navigation]
+    ({ item }: { item: PlanWithRelations }) => (
+      <PlanListCard
+        item={item}
+        onPress={() => navigation.navigate('PlanDetail', { planId: item.plan.id })}
+      />
+    ),
+    [navigation]
   );
+
+  const filterLabels: Record<EstadoFilter, string> = {
+    todos: 'Todos',
+    activos: 'Activos',
+    finalizados: 'Finalizados',
+  };
 
   if (loading) {
     return <Loader fullscreen message="Cargando planes..." />;
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: bgColor }]}>
-      <View style={styles.header}>
-        <View style={[styles.searchBar, { backgroundColor: cardBg, borderColor }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={textSecondary} />
-          <TextInput
-            placeholder="Buscar por plan o socio"
-            placeholderTextColor={textSecondary}
-            value={search}
-            onChangeText={setSearch}
-            style={[styles.searchInput, { color: textPrimary }]}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <MaterialCommunityIcons name="close-circle" size={18} color={textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.filters}>
-          {(['todos', 'activos', 'finalizados'] as EstadoFilter[]).map((filter) => {
-            const isActive = estadoFilter === filter;
-            return (
-              <TouchableOpacity
-                key={filter}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: isActive ? palette.primary : cardBg,
-                    borderColor: isActive ? palette.primary : borderColor,
-                  },
-                ]}
-                onPress={() => setEstadoFilter(filter)}
-              >
-                <Text
-                  style={[styles.filterText, { color: isActive ? '#FFFFFF' : textSecondary }]}
-                >
-                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
+    <View style={[styles.container, { backgroundColor: colors.groupedBackground }]}>
       <FlatList
         data={filteredPlanes}
         renderItem={renderPlan}
         keyExtractor={(item) => item.plan.id}
         contentContainerStyle={styles.listContent}
         contentInsetAdjustmentBehavior="automatic"
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.hero}>
+              <Text style={[styles.heroEyebrow, { color: palette.primary }]}>Catálogo</Text>
+              <Text style={[styles.heroTitle, typography.title2, { color: colors.label }]}>
+                Gestión de planes
+              </Text>
+              <Text style={[styles.heroSub, { color: colors.secondaryLabel }]}>
+                Rutinas, bloques y entrenamientos con una vista clara de cada plan.
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor: colors.secondaryGroupedBackground,
+                  borderColor: colors.separator,
+                },
+              ]}
+            >
+              <Ionicons name="search" size={18} color={colors.secondaryLabel} />
+              <TextInput
+                placeholder="Buscar por nombre, objetivo, tipo o asignación…"
+                placeholderTextColor={colors.tertiaryLabel}
+                value={search}
+                onChangeText={setSearch}
+                style={[styles.searchInput, typography.body, { color: colors.label }]}
+                autoCapitalize="none"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+              />
+              {search.length > 0 && Platform.OS === 'android' ? (
+                <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color={colors.tertiaryLabel} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <View style={[styles.segmented, { backgroundColor: colors.tertiaryGroupedBackground }]}>
+              {(['todos', 'activos', 'finalizados'] as EstadoFilter[]).map((filter) => {
+                const isActive = estadoFilter === filter;
+                return (
+                  <TouchableOpacity
+                    key={filter}
+                    style={[
+                      styles.segment,
+                      isActive && {
+                        backgroundColor: palette.primary,
+                        ...Platform.select({
+                          ios: {
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.12,
+                            shadowRadius: 2,
+                          },
+                          android: { elevation: 2 },
+                        }),
+                      },
+                    ]}
+                    onPress={() => setEstadoFilter(filter)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        {
+                          color: isActive ? '#FFFFFF' : colors.secondaryLabel,
+                          fontWeight: isActive ? '600' : '500',
+                        },
+                      ]}
+                    >
+                      {filterLabels[filter]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.count, typography.footnote, { color: colors.secondaryLabel }]}>
+              {filteredPlanes.length} plan{filteredPlanes.length === 1 ? '' : 'es'}
+            </Text>
+          </View>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -244,7 +227,7 @@ export default function PlanesListScreen() {
           onPress={() => navigation.navigate('PlanForm', {})}
           accessibilityLabel="Crear plan"
         >
-          <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
+          <Ionicons name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       )}
     </View>
@@ -252,90 +235,65 @@ export default function PlanesListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+    flexGrow: 1,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  hero: {
+    marginBottom: 16,
+  },
+  heroEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  heroTitle: {
+    marginBottom: 6,
+  },
+  heroSub: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
-    height: 44,
+    height: 46,
+    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
     marginLeft: 8,
   },
-  filters: {
+  segmented: {
     flexDirection: 'row',
-    marginTop: 12,
-    marginBottom: 4,
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  filterText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 40,
-    flexGrow: 1,
-  },
-  planCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-  },
-  planHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  planIconContainer: {
-    width: 44,
-    height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(220, 38, 38, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 3,
+    marginBottom: 10,
   },
-  planHeaderInfo: {
+  segment: {
     flex: 1,
-    marginLeft: 12,
-  },
-  planNombre: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  planTipo: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  planBody: {
-    marginTop: 12,
-    gap: 6,
-  },
-  planRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
-  planRowText: {
+  segmentText: {
     fontSize: 13,
-    flex: 1,
+  },
+  count: {
+    marginBottom: 8,
+    marginLeft: 4,
   },
   fab: {
     position: 'absolute',

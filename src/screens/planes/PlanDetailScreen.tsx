@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,20 +10,20 @@ import {
   UIManager,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { planesService } from '../../services/api/planes.service';
-import { PlanWithRelations, PlanEjercicioItem } from '../../types/planes.types';
+import { PlanWithRelations, PlanEjercicioItem, Bloque } from '../../types/planes.types';
 import { PlanesStackParamList } from '../../navigation/types';
 import { useAppTheme } from '../../context/ThemeContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { AddBloqueModal, AddEjercicioModal } from '../../components/planes/PlanManageModals';
 import { palette } from '../../constants/colors';
-import Card from '../../components/common/Card';
-import Badge from '../../components/common/Badge';
+import { typography } from '../../theme/iosTheme';
 import Loader from '../../components/common/Loader';
 import EmptyState from '../../components/common/EmptyState';
-import ListRow from '../../components/common/ListRow';
 import { normalizeBloques, getEjercicioNombre } from '../../utils/planBloques';
+import { resolveBlockColor, getDiaSemanaLabel } from '../../utils/planBlockColors';
 import { hapticSelection } from '../../utils/haptics';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -32,12 +32,169 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 type PlanDetailRouteProp = RouteProp<PlanesStackParamList, 'PlanDetail'>;
 
-const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+function MetaField({ label, value }: { label: string; value: string }) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={styles.metaField}>
+      <Text style={[styles.metaFieldLabel, { color: colors.secondaryLabel }]}>{label}</Text>
+      <Text style={[styles.metaFieldValue, { color: colors.label }]}>{value}</Text>
+    </View>
+  );
+}
+
+function EjercicioRow({
+  ejercicio,
+  stripColor,
+  onPress,
+}: {
+  ejercicio: PlanEjercicioItem;
+  stripColor: string;
+  onPress: () => void;
+}) {
+  const { colors } = useAppTheme();
+  const nombre = getEjercicioNombre(ejercicio);
+  const stats = [
+    ejercicio.series ? `Series ${ejercicio.series}` : null,
+    ejercicio.reps ? `Reps ${ejercicio.reps}` : null,
+    ejercicio.peso ? `Peso ${ejercicio.peso}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <TouchableOpacity
+      style={[styles.ejercicioRow, { backgroundColor: colors.secondaryGroupedBackground, borderColor: colors.separator }]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <Ionicons name="chevron-forward" size={16} color={colors.tertiaryLabel} style={styles.ejChevron} />
+      <View style={[styles.ejStrip, { backgroundColor: stripColor }]} />
+      <View style={styles.ejContent}>
+        <Text style={[styles.ejTitle, { color: colors.label }]} numberOfLines={2}>
+          {nombre}
+        </Text>
+        {stats ? (
+          <Text style={[styles.ejStats, { color: colors.secondaryLabel }]} numberOfLines={1}>
+            {stats}
+          </Text>
+        ) : null}
+      </View>
+      {ejercicio.id_video ? (
+        <View style={[styles.videoPill, { backgroundColor: `${colors.tint}14` }]}>
+          <Ionicons name="play-circle" size={14} color={colors.tint} />
+          <Text style={[styles.videoPillText, { color: colors.tint }]}>Video</Text>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+function BloqueCard({
+  bloque,
+  bloqueId,
+  planBloqueId,
+  isExpanded,
+  canManage,
+  onToggle,
+  onAddEjercicio,
+  onEjercicioPress,
+}: {
+  bloque: Bloque;
+  bloqueId: string;
+  planBloqueId: string;
+  isExpanded: boolean;
+  canManage: boolean;
+  onToggle: () => void;
+  onAddEjercicio: () => void;
+  onEjercicioPress: (ej: PlanEjercicioItem) => void;
+}) {
+  const { colors } = useAppTheme();
+  const stripColor = resolveBlockColor(bloque);
+  const ejercicios = bloque.ejercicios || [];
+  const diaNombre = getDiaSemanaLabel(bloque.dia_semana);
+
+  return (
+    <View style={[styles.bloqueCard, { borderColor: colors.separator }]}>
+      <TouchableOpacity
+        style={[styles.bloqueHeader, { backgroundColor: stripColor }]}
+        onPress={onToggle}
+        activeOpacity={0.85}
+      >
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color="rgba(255,255,255,0.95)"
+          style={{ transform: [{ rotate: isExpanded ? '90deg' : '0deg' }] }}
+        />
+        <View style={styles.bloqueHeaderDot} />
+        <View style={styles.bloqueHeaderInfo}>
+          <Text style={styles.bloqueNombre} numberOfLines={2}>
+            {bloque.nombre}
+          </Text>
+          {bloque.observaciones?.trim() ? (
+            <Text style={styles.bloqueObs} numberOfLines={1}>
+              {bloque.observaciones}
+            </Text>
+          ) : null}
+          <Text style={styles.bloqueCount}>
+            {diaNombre ? `${diaNombre} · ` : ''}
+            {ejercicios.length} {ejercicios.length === 1 ? 'ejercicio' : 'ejercicios'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {isExpanded ? (
+        <View style={[styles.ejerciciosWrap, { backgroundColor: colors.tertiaryGroupedBackground }]}>
+          {ejercicios.length === 0 ? (
+            <View style={styles.emptyBlock}>
+              <Text style={[styles.emptyText, { color: colors.secondaryLabel }]}>
+                Sin ejercicios en este bloque
+              </Text>
+              {canManage && planBloqueId ? (
+                <TouchableOpacity style={styles.addEjercicioBtn} onPress={onAddEjercicio}>
+                  <Ionicons name="add" size={16} color={colors.tint} />
+                  <Text style={[styles.addEjercicioText, { color: colors.tint }]}>
+                    Agregar primer ejercicio
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.ejList}>
+              {ejercicios.map((ej, ejIndex) => (
+                <EjercicioRow
+                  key={ej.id || `ej-${ejIndex}`}
+                  ejercicio={ej}
+                  stripColor={stripColor}
+                  onPress={() => {
+                    hapticSelection();
+                    onEjercicioPress(ej);
+                  }}
+                />
+              ))}
+            </View>
+          )}
+          {canManage && planBloqueId && ejercicios.length > 0 ? (
+            <TouchableOpacity style={styles.addEjercicioBtn} onPress={onAddEjercicio}>
+              <Ionicons name="add" size={16} color={colors.tint} />
+              <Text style={[styles.addEjercicioText, { color: colors.tint }]}>Agregar ejercicio</Text>
+            </TouchableOpacity>
+          ) : null}
+          {canManage && !planBloqueId ? (
+            <Text style={[styles.warnText, { color: palette.warning }]}>
+              No se pudo identificar el bloque. Recargá el plan.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export default function PlanDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<PlanDetailRouteProp>();
-  const { isDark, colors } = useAppTheme();
+  const { colors } = useAppTheme();
   const { canManagePlanes } = usePermissions();
 
   const { planId } = route.params;
@@ -51,10 +208,6 @@ export default function PlanDetailScreen() {
   );
 
   const canManage = canManagePlanes();
-
-  const textPrimary = isDark ? palette.darkTextPrimary : palette.lightTextPrimary;
-  const textSecondary = isDark ? palette.darkTextSecondary : palette.lightTextSecondary;
-  const borderColor = isDark ? palette.darkBorder : palette.lightBorder;
 
   const loadPlan = useCallback(async () => {
     try {
@@ -77,6 +230,7 @@ export default function PlanDetailScreen() {
     const plan = planData.plan;
     navigation.setOptions({
       title: plan.nombre_plan,
+      headerTransparent: false,
       headerRight: canManage
         ? () => (
             <TouchableOpacity
@@ -109,6 +263,12 @@ export default function PlanDetailScreen() {
     });
   };
 
+  const bloques = useMemo(() => (planData ? normalizeBloques(planData) : []), [planData]);
+  const heroAccent = useMemo(
+    () => resolveBlockColor(bloques[0] ?? null),
+    [bloques]
+  );
+
   if (loading) {
     return <Loader fullscreen message="Cargando plan..." />;
   }
@@ -124,152 +284,125 @@ export default function PlanDetailScreen() {
   const plan = planData.plan;
   const asignacion = planData.asignaciones?.[0];
   const isActive = planData.activo ?? planData.asignaciones?.some((a) => a.activo) ?? false;
-  const bloques = normalizeBloques(planData);
+  const freq =
+    plan.numero != null && String(plan.numero).trim() !== '' ? String(plan.numero).trim() : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.groupedBackground }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Card variant="grouped" style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <Text style={[styles.planName, { color: textPrimary }]}>{plan.nombre_plan}</Text>
-            <Badge label={isActive ? 'Activo' : 'Finalizado'} variant={isActive ? 'success' : 'neutral'} />
-          </View>
-          {plan.descripcion ? (
-            <Text style={[styles.planDesc, { color: textSecondary }]}>{plan.descripcion}</Text>
-          ) : null}
-          <View style={styles.infoMeta}>
+      <ScrollView contentContainerStyle={styles.scrollContent} contentInsetAdjustmentBehavior="automatic">
+        <LinearGradient
+          colors={['#1e293b', '#1e293b', heroAccent]}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <Text style={styles.heroTitle} numberOfLines={3}>
+            {plan.nombre_plan}
+          </Text>
+          <View style={styles.heroBadges}>
+            {isActive ? (
+              <View style={styles.heroActiveBadge}>
+                <Text style={styles.heroActiveText}>Activo</Text>
+              </View>
+            ) : (
+              <View style={styles.heroInactiveBadge}>
+                <Text style={styles.heroInactiveText}>Finalizado</Text>
+              </View>
+            )}
             {plan.tipo_plan?.nombre_tipo ? (
-              <MetaItem icon="tag" text={plan.tipo_plan.nombre_tipo} color={textSecondary} />
+              <View style={styles.heroTipoBadge}>
+                <Text style={styles.heroTipoText}>{plan.tipo_plan.nombre_tipo}</Text>
+              </View>
             ) : null}
-            {plan.semanas ? (
-              <MetaItem icon="calendar-range" text={`${plan.semanas} semanas`} color={textSecondary} />
-            ) : null}
-            {asignacion?.nombre_socio ? (
-              <MetaItem icon="account" text={asignacion.nombre_socio} color={textSecondary} />
+            {freq ? (
+              <View style={styles.heroTipoBadge}>
+                <Text style={styles.heroTipoText}>{freq}× / sem</Text>
+              </View>
             ) : null}
           </View>
-          {plan.objetivo_semanal ? (
-            <View style={[styles.objetivoBox, { borderColor }]}>
-              <Text style={[styles.objetivoLabel, { color: textSecondary }]}>Objetivo semanal</Text>
-              <Text style={[styles.objetivoText, { color: textPrimary }]}>{plan.objetivo_semanal}</Text>
+          {asignacion?.nombre_socio ? (
+            <View style={styles.heroSocioRow}>
+              <Ionicons name="person-outline" size={14} color="rgba(255,255,255,0.75)" />
+              <Text style={styles.heroSocioText} numberOfLines={1}>
+                {asignacion.nombre_socio}
+              </Text>
             </View>
           ) : null}
-        </Card>
+        </LinearGradient>
+
+        <View style={[styles.metaGrid, { backgroundColor: colors.secondaryGroupedBackground, borderColor: colors.separator }]}>
+          <MetaField label="Objetivo semanal" value={plan.objetivo_semanal?.trim() || 'No especificado'} />
+          <View style={[styles.metaDivider, { backgroundColor: colors.separator }]} />
+          <MetaField
+            label="Observaciones"
+            value={plan.observaciones?.trim() || 'Sin observaciones'}
+          />
+          {plan.descripcion?.trim() ? (
+            <>
+              <View style={[styles.metaDivider, { backgroundColor: colors.separator }]} />
+              <MetaField label="Descripción" value={plan.descripcion.trim()} />
+            </>
+          ) : null}
+          {plan.semanas ? (
+            <>
+              <View style={[styles.metaDivider, { backgroundColor: colors.separator }]} />
+              <MetaField label="Duración" value={`${plan.semanas} semanas`} />
+            </>
+          ) : null}
+        </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: textPrimary }]}>Bloques de entrenamiento</Text>
+          <View>
+            <Text style={[styles.sectionEyebrow, { color: colors.secondaryLabel }]}>
+              Rutina
+            </Text>
+            <Text style={[styles.sectionTitle, typography.title3, { color: colors.label }]}>
+              Bloques y ejercicios
+            </Text>
+          </View>
           {canManage ? (
             <TouchableOpacity style={styles.addLink} onPress={() => setShowAddBloque(true)}>
-              <Ionicons name="add-circle" size={18} color={colors.tint} />
-              <Text style={[styles.addLinkText, { color: colors.tint }]}>Agregar bloque</Text>
+              <Ionicons name="add-circle" size={20} color={colors.tint} />
+              <Text style={[styles.addLinkText, { color: colors.tint }]}>Bloque</Text>
             </TouchableOpacity>
           ) : null}
         </View>
 
         {bloques.length === 0 ? (
-          <Card variant="grouped">
-            <Text style={[styles.emptyText, { color: textSecondary }]}>
+          <View style={[styles.emptyCard, { backgroundColor: colors.secondaryGroupedBackground, borderColor: colors.separator }]}>
+            <Ionicons name="barbell-outline" size={32} color={colors.tertiaryLabel} />
+            <Text style={[styles.emptyText, { color: colors.secondaryLabel }]}>
               Este plan todavía no tiene bloques cargados.
             </Text>
-          </Card>
+          </View>
         ) : (
           bloques.map((bloque, index) => {
             const bloqueId = bloque.id || `bloque-${index}`;
             const planBloqueId = bloque.id_plan_bloque ?? bloque.id_fila_plan_bloque ?? '';
             const isExpanded = expandedBloques.has(bloqueId);
-            const ejercicios = bloque.ejercicios || [];
-            const diaNombre =
-              bloque.dia_semana != null && bloque.dia_semana >= 0 && bloque.dia_semana <= 6
-                ? DIAS_SEMANA[bloque.dia_semana]
-                : null;
 
             return (
-              <Card key={bloqueId} variant="grouped" style={styles.bloqueCard} padding={0}>
-                <TouchableOpacity
-                  style={styles.bloqueHeader}
-                  onPress={() => toggleBloque(bloqueId)}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[styles.bloqueColorDot, { backgroundColor: bloque.color || palette.primary }]}
-                  />
-                  <View style={styles.bloqueHeaderInfo}>
-                    <Text style={[styles.bloqueNombre, { color: textPrimary }]}>{bloque.nombre}</Text>
-                    <Text style={[styles.bloqueMeta, { color: textSecondary }]}>
-                      {diaNombre ? `${diaNombre} · ` : ''}
-                      {ejercicios.length} {ejercicios.length === 1 ? 'ejercicio' : 'ejercicios'}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={textSecondary}
-                  />
-                </TouchableOpacity>
-
-                {isExpanded && (
-                  <View style={[styles.ejerciciosContainer, { borderTopColor: borderColor }]}>
-                    {ejercicios.length === 0 ? (
-                      <View style={styles.emptyBlock}>
-                        <Text style={[styles.emptyText, { color: textSecondary }]}>
-                          Sin ejercicios en este bloque
-                        </Text>
-                        {canManage && planBloqueId ? (
-                          <TouchableOpacity
-                            style={styles.addEjercicioBtn}
-                            onPress={() =>
-                              setEjercicioTarget({ planBloqueId, nombre: bloque.nombre })
-                            }
-                          >
-                            <Ionicons name="add" size={16} color={colors.tint} />
-                            <Text style={[styles.addEjercicioText, { color: colors.tint }]}>
-                              Agregar primer ejercicio
-                            </Text>
-                          </TouchableOpacity>
-                        ) : null}
-                        {canManage && !planBloqueId ? (
-                          <Text style={[styles.warnText, { color: palette.warning }]}>
-                            No se pudo identificar el bloque. Recargá el plan.
-                          </Text>
-                        ) : null}
-                      </View>
-                    ) : (
-                      ejercicios.map((ej, ejIndex) => (
-                        <EjercicioRow
-                          key={ej.id || `ej-${ejIndex}`}
-                          ejercicio={ej}
-                          isLast={ejIndex === ejercicios.length - 1 && !canManage}
-                          onPress={() => {
-                            hapticSelection();
-                            navigation.navigate('PlanEjercicioDetail', {
-                              planId,
-                              planBloqueId: planBloqueId || undefined,
-                              bloqueNombre: bloque.nombre,
-                              ejercicio: ej,
-                            });
-                          }}
-                        />
-                      ))
-                    )}
-                    {canManage && planBloqueId && ejercicios.length > 0 ? (
-                      <TouchableOpacity
-                        style={styles.addEjercicioBtn}
-                        onPress={() => setEjercicioTarget({ planBloqueId, nombre: bloque.nombre })}
-                      >
-                        <Ionicons name="add" size={16} color={colors.tint} />
-                        <Text style={[styles.addEjercicioText, { color: colors.tint }]}>
-                          Agregar ejercicio
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {canManage && !planBloqueId && ejercicios.length > 0 ? (
-                      <Text style={[styles.warnText, { color: palette.warning }]}>
-                        No se pudo identificar el bloque para agregar ejercicios.
-                      </Text>
-                    ) : null}
-                  </View>
-                )}
-              </Card>
+              <BloqueCard
+                key={bloqueId}
+                bloque={bloque}
+                bloqueId={bloqueId}
+                planBloqueId={planBloqueId}
+                isExpanded={isExpanded}
+                canManage={canManage}
+                onToggle={() => toggleBloque(bloqueId)}
+                onAddEjercicio={() =>
+                  setEjercicioTarget({ planBloqueId, nombre: bloque.nombre })
+                }
+                onEjercicioPress={(ej) =>
+                  navigation.navigate('PlanEjercicioDetail', {
+                    planId,
+                    planBloqueId: planBloqueId || undefined,
+                    bloqueNombre: bloque.nombre,
+                    ejercicio: ej,
+                  })
+                }
+              />
             );
           })
         )}
@@ -295,87 +428,222 @@ export default function PlanDetailScreen() {
   );
 }
 
-function MetaItem({ icon, text, color }: { icon: any; text: string; color: string }) {
-  return (
-    <View style={styles.metaItem}>
-      <MaterialCommunityIcons name={icon} size={14} color={color} />
-      <Text style={[styles.metaText, { color }]}>{text}</Text>
-    </View>
-  );
-}
-
-function EjercicioRow({
-  ejercicio,
-  isLast,
-  onPress,
-}: {
-  ejercicio: PlanEjercicioItem;
-  isLast: boolean;
-  onPress: () => void;
-}) {
-  const nombre = getEjercicioNombre(ejercicio);
-  const stats = [
-    ejercicio.series ? `Series ${ejercicio.series}` : null,
-    ejercicio.reps ? `Reps ${ejercicio.reps}` : null,
-    ejercicio.peso ? `Peso ${ejercicio.peso}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
-  return (
-    <ListRow
-      title={nombre}
-      subtitle={stats || undefined}
-      onPress={onPress}
-      icon="barbell-outline"
-      isLast={isLast}
-      detail={ejercicio.id_video ? 'Video' : undefined}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 40 },
-  infoCard: { marginBottom: 20 },
-  infoHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  scrollContent: { paddingBottom: 40 },
+  hero: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  planName: { fontSize: 20, fontWeight: '700', flex: 1, marginRight: 12 },
-  planDesc: { fontSize: 15, marginTop: 8, lineHeight: 22 },
-  infoMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 12 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { fontSize: 13 },
-  objetivoBox: { marginTop: 16, padding: 12, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
-  objetivoLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
-  objetivoText: { fontSize: 15, marginTop: 4 },
-  sectionTitle: { fontSize: 20, fontWeight: '700' },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: palette.primary,
+    lineHeight: 28,
+    marginBottom: 10,
   },
-  addLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addLinkText: { fontSize: 14, fontWeight: '600' },
-  addEjercicioBtn: {
+  heroBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  heroActiveBadge: {
+    backgroundColor: 'rgba(16,185,129,0.2)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.4)',
+  },
+  heroActiveText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6EE7B7',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  heroInactiveBadge: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  heroInactiveText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.75)',
+    textTransform: 'uppercase',
+  },
+  heroTipoBadge: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  heroTipoText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+    textTransform: 'uppercase',
+  },
+  heroSocioRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginTop: 4,
+  },
+  heroSocioText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
+    fontWeight: '500',
+    flex: 1,
+  },
+  metaGrid: {
+    marginHorizontal: 16,
+    marginTop: -12,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  metaField: { paddingVertical: 4 },
+  metaFieldLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  metaFieldValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    marginTop: 4,
+    lineHeight: 21,
+  },
+  metaDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  sectionEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  sectionTitle: {},
+  addLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingBottom: 2 },
+  addLinkText: { fontSize: 14, fontWeight: '700' },
+  emptyCard: {
+    marginHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 28,
+    alignItems: 'center',
+    gap: 10,
+  },
+  bloqueCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  bloqueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  bloqueHeaderDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  bloqueHeaderInfo: { flex: 1, minWidth: 0 },
+  bloqueNombre: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 20,
+  },
+  bloqueObs: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 2,
+  },
+  bloqueCount: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 4,
+  },
+  ejerciciosWrap: {
+    padding: 10,
+    gap: 8,
+  },
+  ejList: { gap: 8 },
+  ejercicioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingRight: 12,
+    paddingLeft: 8,
+    gap: 8,
+  },
+  ejChevron: { marginLeft: 2 },
+  ejStrip: {
+    width: 4,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+    minHeight: 36,
+  },
+  ejContent: { flex: 1, minWidth: 0 },
+  ejTitle: { fontSize: 14, fontWeight: '700', lineHeight: 19 },
+  ejStats: { fontSize: 11, marginTop: 2 },
+  videoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  videoPillText: { fontSize: 10, fontWeight: '700' },
+  emptyBlock: { paddingVertical: 8 },
+  emptyText: { fontSize: 14, textAlign: 'center', paddingVertical: 8 },
+  addEjercicioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
   },
   addEjercicioText: { fontSize: 14, fontWeight: '600' },
-  bloqueCard: { marginBottom: 12, overflow: 'hidden' },
-  bloqueHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  bloqueColorDot: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
-  bloqueHeaderInfo: { flex: 1 },
-  bloqueNombre: { fontSize: 17, fontWeight: '600' },
-  bloqueMeta: { fontSize: 13, marginTop: 2 },
-  ejerciciosContainer: { borderTopWidth: StyleSheet.hairlineWidth },
-  emptyBlock: { paddingVertical: 8 },
-  emptyText: { fontSize: 14, textAlign: 'center', paddingVertical: 12 },
-  warnText: { fontSize: 12, textAlign: 'center', paddingHorizontal: 16, paddingBottom: 12 },
+  warnText: { fontSize: 12, textAlign: 'center', paddingBottom: 8 },
 });

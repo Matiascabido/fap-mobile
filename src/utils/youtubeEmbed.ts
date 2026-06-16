@@ -58,29 +58,67 @@ export function buildYouTubeEmbedUrl(
   return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
 }
 
+/** Evita que el WebView siga redirecciones de YouTube que reinician el embed en Android. */
+export function shouldAllowYouTubeWebViewNavigation(url: string, origin = getYouTubeEmbedOrigin()): boolean {
+  if (!url || url === 'about:blank') return true;
+  if (url.startsWith(origin)) return true;
+  if (/^https:\/\/(www\.)?youtube(-nocookie)?\.com\/embed\//.test(url)) return true;
+  return false;
+}
+
 export function buildYouTubeEmbedHtml(
   videoId: string,
   origin = getYouTubeEmbedOrigin(),
   options?: { autoplay?: boolean; mute?: boolean }
 ): string {
-  const src = buildYouTubeEmbedUrl(videoId, origin, options);
+  const autoplay = options?.autoplay ? 1 : 0;
+  const mute = options?.mute ? 1 : 0;
+  const safeVideoId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const safeOrigin = origin.replace(/['"\\]/g, '');
+
   return `<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; background: #000; }
-  iframe { width: 100%; height: 100%; border: 0; }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+  #player { width: 100%; height: 100%; }
 </style>
 </head>
 <body>
-  <iframe
-    src="${src}"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-    allowfullscreen
-  ></iframe>
+  <div id="player"></div>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        videoId: '${safeVideoId}',
+        host: 'https://www.youtube-nocookie.com',
+        playerVars: {
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          origin: '${safeOrigin}',
+          enablejsapi: 1,
+          autoplay: ${autoplay},
+          mute: ${mute},
+          loop: 0,
+        },
+        events: {
+          onReady: function(e) {
+            if (${autoplay}) e.target.playVideo();
+          },
+          onStateChange: function(e) {
+            if (e.data === YT.PlayerState.ENDED) e.target.stopVideo();
+          },
+        },
+      });
+    }
+    window.pauseVideo = function() { try { player && player.pauseVideo && player.pauseVideo(); } catch (e) {} };
+    window.playVideo = function() { try { player && player.playVideo && player.playVideo(); } catch (e) {} };
+    window.stopVideo = function() { try { player && player.stopVideo && player.stopVideo(); } catch (e) {} };
+  </script>
 </body></html>`;
 }
 
