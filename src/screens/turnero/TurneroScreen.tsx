@@ -32,6 +32,7 @@ import TurnoDetailModal from '../../components/turnero/TurnoDetailModal';
 import { mapTurnoToDetalle } from '../../utils/turnoMapper';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
+import { getUserId } from '../../utils/userId';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
 import { typography } from '../../theme/iosTheme';
@@ -81,7 +82,7 @@ export default function TurneroScreen() {
   );
   const weekKey = format(weekStart, 'yyyy-MM-dd');
   const userEmail = user?.mail;
-  const userId = user?.id;
+  const userId = getUserId(user);
 
   const weekDays = useMemo(
     () => eachDayOfInterval({ start: weekStart, end: weekEnd }),

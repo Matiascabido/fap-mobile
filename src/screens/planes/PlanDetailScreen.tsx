@@ -38,11 +38,6 @@ import {
   planMostrarAgrupacionPorDia,
 } from '../../utils/planDiasSemana';
 import { hapticSelection } from '../../utils/haptics';
-import {
-  HeaderActions,
-  HeaderIconButton,
-} from '../../components/navigation/HeaderIconButton';
-import NotificationBellButton from '../../components/navigation/NotificationBellButton';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -285,36 +280,27 @@ export default function PlanDetailScreen() {
 
   useLayoutEffect(() => {
     if (!planData?.plan) return;
-    const plan = planData.plan;
     navigation.setOptions({
-      title: plan.nombre_plan,
+      title: planData.plan.nombre_plan,
       headerTransparent: false,
-      headerRight: canManage
-        ? () => (
-            <HeaderActions>
-              <HeaderIconButton
-                onPress={() =>
-                  navigation.navigate('PlanForm', {
-                    planId: plan.id,
-                    initialNombre: plan.nombre_plan,
-                    initialDescripcion: plan.descripcion ?? '',
-                    initialSemanas: plan.semanas,
-                    initialObjetivo: plan.objetivo_semanal ?? '',
-                    initialObservaciones: plan.observaciones ?? '',
-                    initialNumero: plan.numero,
-                    initialTipoPlanId: plan.id_tipo_plan ?? plan.tipo_plan?.id ?? '',
-                  })
-                }
-                accessibilityLabel="Editar plan"
-              >
-                <Ionicons name="create-outline" size={22} color={colors.tint} />
-              </HeaderIconButton>
-              <NotificationBellButton />
-            </HeaderActions>
-          )
-        : undefined,
     });
-  }, [navigation, planData, canManage, colors.tint]);
+  }, [navigation, planData]);
+
+  const openEditPlan = useCallback(() => {
+    if (!planData?.plan) return;
+    const plan = planData.plan;
+    hapticSelection();
+    navigation.navigate('PlanForm', {
+      planId: plan.id,
+      initialNombre: plan.nombre_plan,
+      initialDescripcion: plan.descripcion ?? '',
+      initialSemanas: plan.semanas,
+      initialObjetivo: plan.objetivo_semanal ?? '',
+      initialObservaciones: plan.observaciones ?? '',
+      initialNumero: plan.numero,
+      initialTipoPlanId: plan.id_tipo_plan ?? plan.tipo_plan?.id ?? '',
+    });
+  }, [navigation, planData]);
 
   const toggleBloque = (bloqueId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -404,6 +390,17 @@ export default function PlanDetailScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}
         >
+          {canManage ? (
+            <TouchableOpacity
+              style={styles.heroEditBtn}
+              onPress={openEditPlan}
+              accessibilityLabel="Editar plan"
+              accessibilityRole="button"
+            >
+              <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.heroEditText}>Editar plan</Text>
+            </TouchableOpacity>
+          ) : null}
           <Text style={styles.heroTitle} numberOfLines={3}>
             {plan.nombre_plan}
           </Text>
@@ -568,6 +565,24 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
+    gap: 10,
+  },
+  heroEditBtn: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  heroEditText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   heroTitle: {
     fontSize: 22,

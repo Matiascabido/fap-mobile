@@ -20,6 +20,7 @@ import {
   saveNotificationSettings,
 } from '../../utils/notifications/notificationSettings';
 import { TURN_LEAD_OPTIONS, DEFAULT_TURN_LEAD_MINUTES } from '../../types/notifications.types';
+import { DIAS_AVISO_ANTES_VENCIMIENTO } from '../../utils/fechasAlertas';
 import { ENABLE_NOTIFICATION_DEMOS } from '../../utils/notifications/demoNotifications';
 import { hapticSelection } from '../../utils/haptics';
 import { useScreenBackground } from '../../hooks/useScreenBackground';
@@ -27,7 +28,7 @@ import { useScreenBackground } from '../../hooks/useScreenBackground';
 export default function NotificationSettingsScreen() {
   const { colors } = useAppTheme();
   const screenBg = useScreenBackground();
-  const { resetDemoNotifications } = useNotifications();
+  const { resetDemoNotifications, refreshNotifications, restoreDismissedAlerts } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(false);
   const [turnLeadMinutes, setTurnLeadMinutes] = useState(30);
@@ -62,6 +63,7 @@ export default function NotificationSettingsScreen() {
     if (patch.turnLeadMinutes !== undefined) setTurnLeadMinutes(patch.turnLeadMinutes);
     if (patch.planTenureEnabled !== undefined) setPlanTenureEnabled(patch.planTenureEnabled);
     await saveNotificationSettings(next);
+    void refreshNotifications(true);
   };
 
   if (loading) {
@@ -199,7 +201,8 @@ export default function NotificationSettingsScreen() {
             <View style={styles.infoRow}>
               <Ionicons name="time-outline" size={16} color={colors.tint} />
               <Text style={[styles.infoText, { color: colors.secondaryLabel }]}>
-                Por vencer: aviso diario desde 5 días antes hasta el vencimiento.
+                Por vencer: aviso diario desde {DIAS_AVISO_ANTES_VENCIMIENTO} días antes hasta el
+                vencimiento (profesionales ven alertas de sus socios).
               </Text>
             </View>
             <View style={styles.infoRow}>
@@ -214,14 +217,24 @@ export default function NotificationSettingsScreen() {
 
       <GroupedSection
         title="Bandeja"
-        footer="Deslizá a la izquierda o derecha, o tocá ✕ en cada tarjeta para cerrar la alerta."
+        footer="Si cerraste alertas y no vuelven a aparecer, usá «Restaurar alertas cerradas»."
       >
         <View style={[styles.tipoItem, { backgroundColor: `${colors.tint}08` }]}>
           <Ionicons name="hand-left-outline" size={20} color={colors.tint} />
           <Text style={[styles.tipoText, typography.body, { color: colors.label }]}>
-            Las alertas cerradas no vuelven a aparecer hasta que se cumpla de nuevo la condición.
+            Deslizá o tocá ✕ para cerrar una alerta. Las de vencimiento usan el día actual como clave.
           </Text>
         </View>
+        <TouchableOpacity
+          style={[styles.nuevoTipoBtn, { borderTopColor: colors.separator }]}
+          onPress={() => {
+            hapticSelection();
+            void restoreDismissedAlerts();
+          }}
+        >
+          <Ionicons name="notifications-outline" size={20} color={colors.tint} />
+          <Text style={[styles.nuevoTipoText, { color: colors.tint }]}>Restaurar alertas cerradas</Text>
+        </TouchableOpacity>
       </GroupedSection>
 
       {ENABLE_NOTIFICATION_DEMOS ? (

@@ -5,12 +5,18 @@ import { PagoCobranza } from '../../services/api/pagosCobranzas.service';
 import {
   nombreParticipante,
   suscripcionProfesional,
+  suscripcionSocio,
+  calcularEstadoSuscripcion,
 } from '../../services/api/suscripciones.service';
 import { AppNotification, NotificationSettings } from '../../types/notifications.types';
-import { diasHastaVencimiento, parseFechaLocal } from '../../utils/fechasAlertas';
+import {
+  diasHastaVencimiento,
+  parseFechaLocal,
+} from '../../utils/fechasAlertas';
 import { fechaVencimientoSuscripcion } from '../../utils/suscripcionFecha';
 import { estaInscriptoEnTurno } from '../../utils/turnoInscripcion';
 import { formatTime } from '../../utils/formatters';
+import type { TurnoAlertMode } from './notificationData';
 
 function todayYmdLocal(): string {
   const d = new Date();
@@ -45,21 +51,44 @@ function diasConPlanLabel(dias: number): string {
   return `${dias} días`;
 }
 
-function validationFooter(profesionalNombre: string | null): string {
+function validationFooter(profesionalNombre: string | null, staffView: boolean): string {
+  if (staffView) {
+    return 'Si ya pagó, registra el cobro en Suscripciones.';
+  }
   if (profesionalNombre) {
     return `Si ya pagaste, pedile a ${profesionalNombre} que registre el pago.`;
   }
   return 'Si ya pagaste, pedile a tu profesional que registre el pago.';
 }
 
+function normalizeUserId(raw: string | null | undefined): string {
+  return String(raw ?? '').trim().toLowerCase();
+}
+
+function socioIdFromSuscripcion(suscripcion: SuscripcionData): string {
+  const socio = suscripcionSocio(suscripcion);
+  return String(socio.id_usuario ?? socio.id ?? '').trim();
+}
+
+function suscripcionSubjectLabel(
+  suscripcion: SuscripcionData,
+  plan: string,
+  isOwn: boolean
+): string {
+  if (isOwn) return plan;
+  const socioNombre = nombreParticipante(suscripcionSocio(suscripcion));
+  return socioNombre !== '—' ? `${socioNombre} — ${plan}` : plan;
+}
+
 function suscripcionTienePagoReciente(
-  suscripcionId: string,
+  suscripcion: SuscripcionData,
   pagos: PagoCobranza[]
 ): boolean {
+  if (!suscripcion.id) return false;
   const now = new Date();
   const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   return pagos.some((p) => {
-    if (p.id_suscripcion && p.id_suscripcion !== suscripcionId) return false;
+    if (!p.id_suscripcion || p.id_suscripcion !== suscripcion.id) return false;
     if (p.periodo_referencia?.startsWith(mesActual)) return true;
     if (!p.fecha_pago) return false;
     const fp = parseTurnoStart(p.fecha_pago);
@@ -71,20 +100,6 @@ function suscripcionTienePagoReciente(
   });
 }
 
-function shouldSuppressSuscripcionNotification(
-  suscripcion: SuscripcionData,
-  dias: number,
-  pagos: PagoCobranza[]
-): boolean {
-  if (dias > 5) return true;
-  if (dias >= 0 && dias <= 5) return false;
-  // vencida: suprimir si hay pago reciente y ya no está en ventana de alerta
-  if (dias < 0 && suscripcionTienePagoReciente(suscripcion.id, pagos)) {
-    return true;
-  }
-  return false;
-}
-
 export interface EvaluateNotificationsInput {
   turnos: TurnoResponse[];
   suscripciones: SuscripcionData[];
@@ -93,7 +108,7 @@ export interface EvaluateNotificationsInput {
   userEmail?: string;
   settings: NotificationSettings;
   dismissedKeys: Set<string>;
-  canEnrollTurnos: boolean;
+  turnoAlertMode: TurnoAlertMode | null;
   includeSuscripciones: boolean;
 }
 
@@ -113,10 +128,16 @@ export function evaluateNotifications(input: EvaluateNotificationsInput): AppNot
   const now = Date.now();
   const todayYmd = todayYmdLocal();
 
-  if (input.canEnrollTurnos) {
+  if (input.turnoAlertMode) {
     for (const turno of input.turnos) {
       if (turno.cancelado) continue;
-      if (!estaInscriptoEnTurno(turno, input.userId, input.userEmail)) continue;
+
+      if (
+        input.turnoAlertMode === 'inscripto' &&
+        !estaInscriptoEnTurno(turno, input.userId, input.userEmail)
+      ) {
+        continue;
+      }
 
       const start = parseTurnoStart(turno.fecha_inicio);
       if (!start) continue;
@@ -129,10 +150,12 @@ export function evaluateNotifications(input: EvaluateNotificationsInput): AppNot
 
       const id = `turno:${turno.id_turno}:pre`;
       const titulo = turno.titulo?.trim() || turno.serie?.titulo?.trim() || 'Turno';
+      const esClase = input.turnoAlertMode === 'profesional';
+
       candidates.push({
         id,
         type: 'turno_proximo',
-        title: 'Tu turno comienza pronto',
+        title: esClase ? 'Tu clase comienza pronto' : 'Tu turno comienza pronto',
         body: `${titulo} empieza a las ${formatTime(turno.fecha_inicio)}.`,
         createdAt: new Date().toISOString(),
         targetRoute: 'Turnero',
@@ -142,12 +165,18 @@ export function evaluateNotifications(input: EvaluateNotificationsInput): AppNot
 
   if (input.includeSuscripciones) {
     for (const suscripcion of input.suscripciones) {
+      const estado = calcularEstadoSuscripcion(suscripcion);
       const fechaVenc = fechaVencimientoSuscripcion(suscripcion);
       const dias = diasHastaVencimiento(fechaVenc);
       const plan = suscripcion.suscripcion_detalle?.nombre?.trim() || 'Suscripción';
+      const isOwnSubscription =
+        normalizeUserId(socioIdFromSuscripcion(suscripcion)) === normalizeUserId(input.userId);
+      const staffView = !isOwnSubscription;
 
       if (
+        isOwnSubscription &&
         input.settings.planTenureEnabled &&
+        estado !== 'vencida' &&
         dias != null &&
         dias >= 0
       ) {
@@ -165,13 +194,13 @@ export function evaluateNotifications(input: EvaluateNotificationsInput): AppNot
         }
       }
 
-      if (dias == null) continue;
-      if (shouldSuppressSuscripcionNotification(suscripcion, dias, input.pagos)) continue;
+      if (estado === 'vigente' || dias == null) continue;
 
       const profe = nombreParticipante(suscripcionProfesional(suscripcion));
-      const footer = validationFooter(profe !== '—' ? profe : null);
+      const footer = validationFooter(profe !== '—' ? profe : null, staffView);
+      const subject = suscripcionSubjectLabel(suscripcion, plan, isOwnSubscription);
 
-      if (dias >= 0 && dias <= 5) {
+      if (estado === 'por_vencer') {
         const id = `suscripcion:${suscripcion.id}:pre:${dias}`;
         const diasText =
           dias === 0
@@ -183,25 +212,30 @@ export function evaluateNotifications(input: EvaluateNotificationsInput): AppNot
         candidates.push({
           id,
           type: 'suscripcion_por_vencer',
-          title: 'Suscripción por vencer',
-          body: `${plan} ${diasText}. ${footer}`,
+          title: staffView ? 'Suscripción de socio por vencer' : 'Suscripción por vencer',
+          body: `${subject} ${diasText}. ${footer}`,
           createdAt: new Date().toISOString(),
           targetRoute: 'Suscripciones',
         });
         continue;
       }
 
-      if (dias < 0) {
+      if (estado === 'vencida') {
+        if (suscripcionTienePagoReciente(suscripcion, input.pagos)) continue;
+
         const id = `suscripcion:${suscripcion.id}:post:${todayYmd}`;
         const diasVencidos = Math.abs(dias);
         const vencidoText =
           diasVencidos === 1 ? 'venció ayer' : `venció hace ${diasVencidos} días`;
+        const moraText = staffView
+          ? 'Poné al día el abono del socio.'
+          : 'Ponete al día con tu abono.';
 
         candidates.push({
           id,
           type: 'suscripcion_vencida',
-          title: 'Suscripción vencida',
-          body: `${plan} ${vencidoText}. Ponete al día con tu abono. ${footer}`,
+          title: staffView ? 'Suscripción de socio vencida' : 'Suscripción vencida',
+          body: `${subject} ${vencidoText}. ${moraText} ${footer}`,
           createdAt: new Date().toISOString(),
           targetRoute: 'Suscripciones',
         });

@@ -9,26 +9,26 @@ import React, {
   type ReactNode,
 } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { format } from 'date-fns';
 import { useAuth } from '../hooks/useAuth';
-import { turneroService } from '../services/api/turnero.service';
-import { suscripcionesService } from '../services/api/suscripciones.service';
-import { pagosCobranzasService } from '../services/api/pagosCobranzas.service';
 import { getUserId } from '../utils/userId';
 import {
-  puedeInscribirseATurnos,
-  esRolEntrenado,
-  esRolSocioClub,
-  esRolEntrnadoOff,
-} from '../utils/sessionRole';
+  puedeRecibirAlertasSuscripciones,
+  puedeRecibirAlertasTurnos,
+  getTurnoAlertMode,
+  loadTurnosForNotifications,
+  loadSuscripcionesForNotifications,
+  loadPagosForNotifications,
+} from '../utils/notifications/notificationData';
 import {
   hydrateTurnoInscripciones,
   syncTurnoInscripcionesFromList,
 } from '../utils/turnoInscripcion';
 import { evaluateNotifications } from '../utils/notifications/notificationEngine';
+import { calcularEstadoSuscripcion } from '../services/api/suscripciones.service';
 import {
   dismissNotificationKey,
   loadDismissedKeys,
+  clearDismissedKeys,
 } from '../utils/notifications/notificationDismissals';
 import { loadNotificationSettings } from '../utils/notifications/notificationSettings';
 import {
@@ -39,7 +39,7 @@ import {
 import type { AppNotification } from '../types/notifications.types';
 
 const REFRESH_INTERVAL_MS = 60_000;
-const GYM_UTC_OFFSET = '-03:00';
+const MIN_REFRESH_GAP_MS = 5_000;
 
 interface NotificationsContextValue {
   notifications: AppNotification[];
@@ -48,25 +48,10 @@ interface NotificationsContextValue {
   refreshNotifications: (force?: boolean) => Promise<AppNotification[]>;
   dismissNotification: (id: string) => Promise<void>;
   resetDemoNotifications: () => void;
+  restoreDismissedAlerts: () => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
-
-function todayTomorrowRange(): { desde: string; hasta: string } {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return {
-    desde: `${format(today, 'yyyy-MM-dd')}T00:00:00${GYM_UTC_OFFSET}`,
-    hasta: `${format(tomorrow, 'yyyy-MM-dd')}T23:59:59${GYM_UTC_OFFSET}`,
-  };
-}
-
-function shouldIncludeSuscripciones(user: ReturnType<typeof useAuth>['user']): boolean {
-  if (!user) return false;
-  return esRolEntrenado(user) || esRolSocioClub(user) || esRolEntrnadoOff(user);
-}
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -78,6 +63,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const lastRefreshRef = useRef(0);
   const refreshingRef = useRef(false);
+  const realNotificationsRef = useRef(realNotifications);
+  realNotificationsRef.current = realNotifications;
 
   const demoNotifications = useMemo(() => {
     if (!ENABLE_NOTIFICATION_DEMOS || !userId) return [];
@@ -102,43 +89,38 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       }
 
       const now = Date.now();
-      if (!force && now - lastRefreshRef.current < 5_000) {
-        return [...demos, ...realNotifications];
+      if (!force && now - lastRefreshRef.current < MIN_REFRESH_GAP_MS) {
+        return [...demos, ...realNotificationsRef.current];
       }
       if (refreshingRef.current) {
-        return [...demos, ...realNotifications];
+        return [...demos, ...realNotificationsRef.current];
       }
 
       refreshingRef.current = true;
       setIsRefreshing(true);
 
       try {
-        const range = todayTomorrowRange();
-        const canEnroll = puedeInscribirseATurnos(user);
-        const includeSubs = shouldIncludeSuscripciones(user);
+        const turnoAlertMode = getTurnoAlertMode(user);
+        const includeSubs = puedeRecibirAlertasSuscripciones(user);
+        const includeTurnos = puedeRecibirAlertasTurnos(user);
 
         await hydrateTurnoInscripciones(userId);
 
-        const turnosPromise = canEnroll
-          ? turneroService
-              .list({
-                desde: range.desde,
-                hasta: range.hasta,
-                email_socio: userEmail,
-              })
-              .then(async (data) => {
+        const turnosPromise = includeTurnos
+          ? loadTurnosForNotifications(user, userEmail).then(async (data) => {
+              if (turnoAlertMode === 'inscripto') {
                 await syncTurnoInscripcionesFromList(data, userId, userEmail);
-                return data;
-              })
-              .catch(() => [] as Awaited<ReturnType<typeof turneroService.list>>)
-          : Promise.resolve([] as Awaited<ReturnType<typeof turneroService.list>>);
+              }
+              return data;
+            })
+          : Promise.resolve([] as Awaited<ReturnType<typeof loadTurnosForNotifications>>);
 
         const suscripcionesPromise = includeSubs
-          ? suscripcionesService.getByUsuario(userId).catch(() => [])
+          ? loadSuscripcionesForNotifications(user, userId)
           : Promise.resolve([]);
 
         const pagosPromise = includeSubs
-          ? pagosCobranzasService.getAll({ id_usuario_socio: userId, limit: 100 }).catch(() => [])
+          ? loadPagosForNotifications(user, userId)
           : Promise.resolve([]);
 
         const [turnos, suscripciones, pagos, dismissedKeys, settings] = await Promise.all([
@@ -157,19 +139,31 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           userEmail,
           settings,
           dismissedKeys,
-          canEnrollTurnos: canEnroll,
+          turnoAlertMode,
           includeSuscripciones: includeSubs,
         });
+
+        if (__DEV__) {
+          const alertables = suscripciones.filter(
+            (s) => calcularEstadoSuscripcion(s) !== 'vigente'
+          ).length;
+          console.log(
+            `[Notificaciones] suscripciones=${suscripciones.length} alertables=${alertables} generadas=${next.length} descartadas=${dismissedKeys.size}`
+          );
+        }
 
         setRealNotifications(next);
         lastRefreshRef.current = Date.now();
         return [...demoNotificationsRef.current, ...next];
+      } catch (error) {
+        console.error('Error refreshing notifications:', error);
+        return [...demos, ...realNotificationsRef.current];
       } finally {
         refreshingRef.current = false;
         setIsRefreshing(false);
       }
     },
-    [user, userId, userEmail, realNotifications]
+    [user, userId, userEmail]
   );
 
   const dismissNotification = useCallback(
@@ -189,6 +183,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setDemoDismissed(new Set());
   }, []);
 
+  const restoreDismissedAlerts = useCallback(async () => {
+    if (!userId) return;
+    await clearDismissedKeys(userId);
+    await refreshNotifications(true);
+  }, [userId, refreshNotifications]);
+
   useEffect(() => {
     if (!userId) {
       setRealNotifications([]);
@@ -196,7 +196,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       return;
     }
     void refreshNotifications(true);
-  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, refreshNotifications]);
 
   useEffect(() => {
     if (!userId) return;
@@ -240,13 +240,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       notifications,
-      unreadCount: notifications.length,
+      unreadCount: notifications.filter((n) => !n.isDemo).length,
       isRefreshing,
       refreshNotifications,
       dismissNotification,
       resetDemoNotifications,
+      restoreDismissedAlerts,
     }),
-    [notifications, isRefreshing, refreshNotifications, dismissNotification, resetDemoNotifications]
+    [notifications, isRefreshing, refreshNotifications, dismissNotification, resetDemoNotifications, restoreDismissedAlerts]
   );
 
   return (

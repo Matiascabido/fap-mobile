@@ -5,8 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import { palette } from '../../constants/colors';
-import { hapticSelection } from '../../utils/haptics';
 import { HeaderIconButton } from './HeaderIconButton';
+import { navigateToNotifications } from '../../utils/navigateNotifications';
 
 const ICON_SIZE = 22;
 
@@ -17,10 +17,7 @@ export default function NotificationBellButton() {
 
   return (
     <HeaderIconButton
-      onPress={() => {
-        hapticSelection();
-        navigation.navigate('More', { screen: 'Notifications' });
-      }}
+      onPress={() => navigateToNotifications(navigation)}
       accessibilityLabel={
         unreadCount > 0
           ? `Notificaciones, ${unreadCount} pendientes`

@@ -45,9 +45,8 @@ import PerfilScreen from '../screens/perfil/PerfilScreen';
 import MoreScreen from '../screens/more/MoreScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import NotificationSettingsScreen from '../screens/more/NotificationSettingsScreen';
-import NotificationBellButton from '../components/navigation/NotificationBellButton';
+import { StackHeaderRight } from '../components/navigation/StackHeaderRight';
 import {
-  HeaderActions,
   headerLeftContainerStyle,
   headerSideContainerStyle,
 } from '../components/navigation/HeaderIconButton';
@@ -74,11 +73,7 @@ function stackScreenOptions(colors: AppThemeTokens) {
     headerRightContainerStyle: headerSideContainerStyle,
     headerLeftContainerStyle: headerLeftContainerStyle,
     headerBackButtonDisplayMode: 'minimal' as const,
-    headerRight: () => (
-      <HeaderActions>
-        <NotificationBellButton />
-      </HeaderActions>
-    ),
+    headerRight: () => <StackHeaderRight />,
     ...(Platform.OS === 'ios' ? { headerBlurEffect: 'regular' as const } : {}),
   };
 }

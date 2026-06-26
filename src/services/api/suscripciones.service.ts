@@ -10,6 +10,18 @@ import {
 } from '../../utils/fechasAlertas';
 import { fechaVencimientoSuscripcion } from '../../utils/suscripcionFecha';
 
+/** Normaliza respuestas del API: array, objeto único o envelope paginado. */
+export function normalizeSuscripcionesList(raw: unknown): SuscripcionData[] {
+  if (Array.isArray(raw)) return raw as SuscripcionData[];
+  if (raw && typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    if (Array.isArray(o.items)) return o.items as SuscripcionData[];
+    if (Array.isArray(o.data)) return o.data as SuscripcionData[];
+    if (typeof o.id === 'string') return [raw as SuscripcionData];
+  }
+  return [];
+}
+
 export function suscripcionSocio(s: SuscripcionData): SuscripcionParticipante {
   return s.usuario_socio ?? s.socio ?? s.usuario;
 }
@@ -47,10 +59,10 @@ export const suscripcionesService = {
     const params = new URLSearchParams();
     params.append('skip', '0');
     params.append('limit', String(Math.min(500, Math.max(1, opts?.limit ?? 100))));
-    const data = await apiFetch<SuscripcionData[]>(`/suscripciones?${params.toString()}`, {
+    const data = await apiFetch<unknown>(`/suscripciones?${params.toString()}`, {
       method: 'GET',
     });
-    return Array.isArray(data) ? data : [];
+    return normalizeSuscripcionesList(data);
   },
 
   async search(search: string): Promise<SuscripcionData[]> {
@@ -58,10 +70,10 @@ export const suscripcionesService = {
     if (search?.trim()) params.append('search', search.trim());
     params.append('skip', '0');
     params.append('limit', '100');
-    const data = await apiFetch<SuscripcionData[]>(`/suscripciones?${params.toString()}`, {
+    const data = await apiFetch<unknown>(`/suscripciones?${params.toString()}`, {
       method: 'GET',
     });
-    return Array.isArray(data) ? data : [];
+    return normalizeSuscripcionesList(data);
   },
 
   async getById(id: string): Promise<SuscripcionData> {
@@ -69,11 +81,11 @@ export const suscripcionesService = {
   },
 
   async getByUsuario(usuarioId: string): Promise<SuscripcionData[]> {
-    const data = await apiFetch<SuscripcionData[]>(
+    const data = await apiFetch<unknown>(
       `/suscripciones/usuario/${encodeURIComponent(usuarioId)}`,
       { method: 'GET' }
     );
-    return Array.isArray(data) ? data : [];
+    return normalizeSuscripcionesList(data);
   },
 
   async create(dto: CreateSuscripcionDTO): Promise<SuscripcionData> {
@@ -91,11 +103,11 @@ export const suscripcionesService = {
   },
 
   async getByProfesional(profesionalId: string): Promise<SuscripcionData[]> {
-    const data = await apiFetch<SuscripcionData[]>(
+    const data = await apiFetch<unknown>(
       `/suscripciones?id_usuario_profesional=${encodeURIComponent(profesionalId)}&skip=0&limit=200`,
       { method: 'GET' }
     );
-    return Array.isArray(data) ? data : [];
+    return normalizeSuscripcionesList(data);
   },
 
   async delete(id: string): Promise<any> {

@@ -22,6 +22,20 @@ export function weekRangeQueryParams(weekStart: Date, weekEnd: Date): {
   };
 }
 
+/**
+ * Rango hoy + mañana para alertas de turnos (cubre ventana de aviso hasta 60 min).
+ */
+export function todayTomorrowRangeQueryParams(): { desde: string; hasta: string } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return {
+    desde: `${format(today, 'yyyy-MM-dd')}T00:00:00${GYM_UTC_OFFSET}`,
+    hasta: `${format(tomorrow, 'yyyy-MM-dd')}T23:59:59${GYM_UTC_OFFSET}`,
+  };
+}
+
 /** Combina día seleccionado con hora `HH:mm`. */
 export function combineDayAndTime(day: Date, timeHHmm: string): Date {
   const [hh, mm] = timeHHmm.split(':').map((v) => parseInt(v, 10));

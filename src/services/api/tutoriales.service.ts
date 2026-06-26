@@ -1,4 +1,4 @@
-import { apiFetch } from './http';
+import { apiFetch, HttpRequestError } from './http';
 import { Tutorial, TutorialesResponse } from '../../types/tutoriales.types';
 
 export const TUTORIALES_PAGE_SIZE = 12;
@@ -133,18 +133,59 @@ function normalizeEnvelope(raw: unknown): { itemsRaw: unknown[]; total: number }
   return { itemsRaw, total: Math.max(0, Math.floor(total)) };
 }
 
+const GRUPOS_FETCH_CTX = {
+  suppressGlobalAlert: true,
+  suppressErrorLog: true,
+} as const;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function collectGruposFromTutorials(items: Tutorial[]): string[] {
+  const names = new Set<string>();
+  for (const item of items) {
+    for (const grupo of item.grupos) {
+      const trimmed = grupo.trim();
+      if (trimmed) names.add(trimmed);
+    }
+  }
+  return [...names].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+async function fetchGruposFromListEndpoint(): Promise<string[]> {
+  const res = await tutorialesService.getTutoriales(0, 200);
+  return collectGruposFromTutorials(res.items);
+}
+
 export const tutorialesService = {
   /**
    * Obtiene los grupos/categorías de tutoriales
    */
   async getGrupos(): Promise<string[]> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const data = await apiFetch<{ grupos: string[] }>(
+          '/tutoriales/grupos',
+          { method: 'GET' },
+          GRUPOS_FETCH_CTX
+        );
+        return data.grupos ?? [];
+      } catch (error) {
+        if (
+          attempt === 0 &&
+          error instanceof HttpRequestError &&
+          error.status >= 500
+        ) {
+          await sleep(1500);
+          continue;
+        }
+        break;
+      }
+    }
+
     try {
-      const data = await apiFetch<{ grupos: string[] }>(
-        '/tutoriales/grupos',
-        { method: 'GET' },
-        { suppressGlobalAlert: true }
-      );
-      return data.grupos ?? [];
+      return await fetchGruposFromListEndpoint();
     } catch {
       return [];
     }

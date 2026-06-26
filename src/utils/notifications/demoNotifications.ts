@@ -1,7 +1,7 @@
 import type { AppNotification } from '../../types/notifications.types';
 
-/** Muestra notificaciones de ejemplo en la bandeja (solo sesión, sin backend). */
-export const ENABLE_NOTIFICATION_DEMOS = true;
+/** Muestra notificaciones de ejemplo en la bandeja (solo desarrollo). */
+export const ENABLE_NOTIFICATION_DEMOS = __DEV__;
 
 export function isDemoNotificationId(id: string): boolean {
   return id.startsWith('demo:');

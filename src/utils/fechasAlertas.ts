@@ -78,6 +78,9 @@ export function suscripcionEstaVigente(fechaVencimiento: string | null | undefin
   return dias != null && dias >= 0;
 }
 
+/** Ventana de aviso antes del vencimiento (alineada con listado y notificaciones). */
+export const DIAS_AVISO_ANTES_VENCIMIENTO = 7;
+
 export function suscripcionVenceEnDias(
   fechaVencimiento: string | null | undefined,
   dias: number
@@ -89,7 +92,7 @@ export function suscripcionVenceEnDias(
 export function enUltimaSemanaAntesDeVencer(
   fechaVencimiento: string | null | undefined
 ): boolean {
-  return suscripcionVenceEnDias(fechaVencimiento, 7);
+  return suscripcionVenceEnDias(fechaVencimiento, DIAS_AVISO_ANTES_VENCIMIENTO);
 }
 
 export type EstadoSuscripcion = 'vigente' | 'por_vencer' | 'vencida';
@@ -101,7 +104,7 @@ export function calcularEstadoSuscripcion(
   // Si no se puede parsear, no asumir vencida (evita falsos positivos)
   if (dias == null) return 'vigente';
   if (dias < 0) return 'vencida';
-  if (dias <= 7) return 'por_vencer';
+  if (dias <= DIAS_AVISO_ANTES_VENCIMIENTO) return 'por_vencer';
   return 'vigente';
 }
 

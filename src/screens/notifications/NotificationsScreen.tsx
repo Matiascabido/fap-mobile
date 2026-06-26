@@ -25,7 +25,7 @@ export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
   const { colors } = useAppTheme();
   const screenBg = useScreenBackground();
-  const { notifications, isRefreshing, refreshNotifications, dismissNotification, resetDemoNotifications } =
+  const { notifications, isRefreshing, refreshNotifications, dismissNotification, resetDemoNotifications, restoreDismissedAlerts } =
     useNotifications();
 
   const onRefresh = useCallback(() => {
@@ -111,6 +111,18 @@ export default function NotificationsScreen() {
         </GroupedSection>
 
         <GroupedSection title="Acciones">
+          {count === 0 ? (
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderBottomColor: colors.separator }]}
+              onPress={() => {
+                hapticSelection();
+                void restoreDismissedAlerts();
+              }}
+            >
+              <Ionicons name="notifications-outline" size={20} color={colors.tint} />
+              <Text style={[styles.actionText, { color: colors.tint }]}>Restaurar alertas cerradas</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             style={[styles.actionBtn, { borderBottomColor: colors.separator }]}
             onPress={() => navigation.navigate('NotificationSettings')}

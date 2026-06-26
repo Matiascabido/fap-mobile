@@ -171,6 +171,8 @@ function showErrorAlert(message: string): void {
 export type ApiFetchContext = {
   /** Evita alert ante fallos (p. ej. 404 esperado) */
   suppressGlobalAlert?: boolean;
+  /** Evita log en consola ante fallos esperados o con fallback */
+  suppressErrorLog?: boolean;
 };
 
 function parseEndpointPath(endpoint: string): string {
@@ -202,7 +204,8 @@ function logApiRequest(endpoint: string, options?: AxiosRequestConfig): void {
   }
 }
 
-function logApiError(endpoint: string, error: unknown): void {
+function logApiError(endpoint: string, error: unknown, ctx?: ApiFetchContext): void {
+  if (ctx?.suppressErrorLog) return;
   if (error instanceof UnauthorizedSessionError) return;
   const path = parseEndpointPath(endpoint);
   if (error instanceof HttpRequestError) {
@@ -302,7 +305,7 @@ export async function apiFetch<T>(
       }
 
       const httpError = new HttpRequestError(message, status, endpoint);
-      logApiError(endpoint, httpError);
+      logApiError(endpoint, httpError, ctx);
       throw httpError;
     }
     
@@ -312,7 +315,7 @@ export async function apiFetch<T>(
       showErrorAlert(message);
     }
     const networkError = new Error(message);
-    logApiError(endpoint, networkError);
+    logApiError(endpoint, networkError, ctx);
     throw networkError;
   }
 }
@@ -348,7 +351,7 @@ export async function apiFetchWithResponse<T>(
       }
 
       const httpError = new HttpRequestError(message, status, endpoint);
-      logApiError(endpoint, httpError);
+      logApiError(endpoint, httpError, ctx);
       throw httpError;
     }
     
@@ -357,7 +360,7 @@ export async function apiFetchWithResponse<T>(
       showErrorAlert(message);
     }
     const networkError = new Error(message);
-    logApiError(endpoint, networkError);
+    logApiError(endpoint, networkError, ctx);
     throw networkError;
   }
 }
