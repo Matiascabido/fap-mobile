@@ -25,12 +25,12 @@ import { navigateToModule } from '../../utils/navigateModule';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
-  const { user } = useAuth();
+  const { user, profilePhotoUrl } = useAuth();
   const { isSocioSinPlan } = usePermissions();
   const { colors, isDark } = useAppTheme();
   const { refreshNotifications, isRefreshing } = useNotifications();
   const { homeItems } = useNavigationPreferences();
-  const { displayName, hasNickname, photoUri } = useLocalProfile();
+  const { displayName, hasNickname } = useLocalProfile();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {
@@ -67,10 +67,10 @@ export default function HomeScreen() {
       }
     >
       <View style={styles.heroWrap}>
-        {photoUri ? (
+        {profilePhotoUrl ? (
           <View style={styles.photoBannerWrap}>
             <Image
-              source={{ uri: photoUri }}
+              source={{ uri: profilePhotoUrl }}
               style={styles.photoBanner}
               resizeMode="cover"
               accessibilityLabel="Tu foto de perfil"
@@ -86,7 +86,7 @@ export default function HomeScreen() {
           colors={['#0f172a', '#7f1d1d']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={[styles.heroCard, photoUri ? styles.heroCardWithPhoto : null]}
+          style={[styles.heroCard, profilePhotoUrl ? styles.heroCardWithPhoto : null]}
         >
           <View style={styles.heroBlob} />
           <View style={styles.heroBlob2} />

@@ -11,9 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getUserId } from '../utils/userId';
 import {
   getLocalDisplayName,
-  loadLocalProfile,
-  pickAndSaveProfilePhoto,
-  removeProfilePhoto,
+  loadLocalNickname,
   saveLocalNickname,
 } from '../utils/localProfile';
 import { MAX_LOCAL_NICKNAME_LENGTH } from '../types/localProfile.types';
@@ -21,12 +19,9 @@ import { MAX_LOCAL_NICKNAME_LENGTH } from '../types/localProfile.types';
 interface LocalProfileContextValue {
   loading: boolean;
   nickname: string;
-  photoUri: string | null;
   displayName: string;
   hasNickname: boolean;
   setNickname: (value: string) => Promise<void>;
-  pickPhoto: () => Promise<void>;
-  removePhoto: () => Promise<void>;
 }
 
 const LocalProfileContext = createContext<LocalProfileContextValue | undefined>(undefined);
@@ -36,19 +31,16 @@ export function LocalProfileProvider({ children }: { children: ReactNode }) {
   const userId = getUserId(user);
   const [loading, setLoading] = useState(true);
   const [nickname, setNicknameState] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!userId) {
       setNicknameState('');
-      setPhotoUri(null);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const data = await loadLocalProfile(userId);
-    setNicknameState(data.nickname);
-    setPhotoUri(data.photoUri);
+    const nick = await loadLocalNickname(userId);
+    setNicknameState(nick);
     setLoading(false);
   }, [userId]);
 
@@ -66,18 +58,6 @@ export function LocalProfileProvider({ children }: { children: ReactNode }) {
     [userId]
   );
 
-  const pickPhoto = useCallback(async () => {
-    if (!userId) return;
-    const uri = await pickAndSaveProfilePhoto(userId);
-    if (uri) setPhotoUri(uri);
-  }, [userId]);
-
-  const removePhoto = useCallback(async () => {
-    if (!userId) return;
-    await removeProfilePhoto(userId);
-    setPhotoUri(null);
-  }, [userId]);
-
   const displayName = useMemo(
     () => getLocalDisplayName(nickname, user?.nombre, user?.apellido),
     [nickname, user?.nombre, user?.apellido]
@@ -86,12 +66,9 @@ export function LocalProfileProvider({ children }: { children: ReactNode }) {
   const value: LocalProfileContextValue = {
     loading,
     nickname,
-    photoUri,
     displayName,
     hasNickname: nickname.trim().length > 0,
     setNickname,
-    pickPhoto,
-    removePhoto,
   };
 
   return (

@@ -22,6 +22,7 @@ export interface Usuario {
   grupo: string;
   estado: boolean;
   permisos: PermisoToken[];
+  foto_url?: string;
 }
 
 export interface LoginResponse {

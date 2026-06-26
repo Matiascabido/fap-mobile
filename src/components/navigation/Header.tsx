@@ -15,7 +15,7 @@ interface HeaderProps {
 
 export default function Header({ navigation, title }: HeaderProps) {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, profilePhotoUrl } = useAuth();
   const { isDark } = useTheme();
 
   const bgColor = isDark ? palette.darkCard : '#FFFFFF';
@@ -56,7 +56,12 @@ export default function Header({ navigation, title }: HeaderProps) {
             accessibilityLabel="Ir a perfil"
             style={styles.avatarButton}
           >
-            <Avatar nombre={user?.nombre} apellido={user?.apellido} size={38} />
+            <Avatar
+              nombre={user?.nombre}
+              apellido={user?.apellido}
+              size={38}
+              imageUri={profilePhotoUrl}
+            />
           </TouchableOpacity>
         </View>
       </View>

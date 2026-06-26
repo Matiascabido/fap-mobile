@@ -16,9 +16,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { palette } from '../../constants/colors';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import Avatar from '../../components/common/Avatar';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
+import ProfileAvatarUpload from '../../components/perfil/ProfileAvatarUpload';
 import {
   pagosCobranzasService,
   PagoCobranza,
@@ -29,6 +29,7 @@ import { getRolLabel } from '../../utils/sessionRole';
 import AppearanceSettings from '../../components/settings/AppearanceSettings';
 import LocalProfileSettings from '../../components/perfil/LocalProfileSettings';
 import { useLocalProfile } from '../../context/LocalProfileContext';
+import { getUserId } from '../../utils/userId';
 
 const MEDIO_PAGO_LABELS: Record<string, string> = {
   TRANSFERENCIA: 'Transferencia',
@@ -39,9 +40,9 @@ const MEDIO_PAGO_LABELS: Record<string, string> = {
 };
 
 export default function PerfilScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, profilePhotoUrl, refreshUserProfile } = useAuth();
   const { isDark, colors } = useTheme();
-  const { displayName, hasNickname, photoUri } = useLocalProfile();
+  const { displayName, hasNickname } = useLocalProfile();
   const { getPermissionCodes, isProfesionalUser, isAdminUser, isSocioUser, hasPermission } =
     usePermissions();
 
@@ -87,7 +88,8 @@ export default function PerfilScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadCobranzas();
-    }, [loadCobranzas])
+      void refreshUserProfile();
+    }, [loadCobranzas, refreshUserProfile])
   );
 
   const handleLogout = () => {
@@ -112,11 +114,12 @@ export default function PerfilScreen() {
     >
       {/* Header de perfil */}
       <View style={styles.profileHeader}>
-        <Avatar
+        <ProfileAvatarUpload
+          usuarioId={getUserId(user)}
           nombre={user?.nombre}
           apellido={user?.apellido}
+          fotoUrl={profilePhotoUrl}
           size={88}
-          imageUri={photoUri}
         />
         <Text style={[styles.profileName, { color: textPrimary }]}>{displayName}</Text>
         {hasNickname ? (
@@ -136,8 +139,6 @@ export default function PerfilScreen() {
           textPrimary={textPrimary}
           textSecondary={textSecondary}
           borderColor={borderColor}
-          nombre={user?.nombre}
-          apellido={user?.apellido}
         />
       </Card>
 

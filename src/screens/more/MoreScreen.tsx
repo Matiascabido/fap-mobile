@@ -31,9 +31,9 @@ type MoreNav = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
 export default function MoreScreen() {
   const navigation = useNavigation<MoreNav>();
-  const { user, logout } = useAuth();
+  const { user, logout, profilePhotoUrl } = useAuth();
   const { colors } = useAppTheme();
-  const { displayName, hasNickname, photoUri } = useLocalProfile();
+  const { displayName, hasNickname } = useLocalProfile();
   const {
     available,
     moreItems,
@@ -100,7 +100,7 @@ export default function MoreScreen() {
             nombre={user?.nombre}
             apellido={user?.apellido}
             size={56}
-            imageUri={photoUri}
+            imageUri={profilePhotoUrl}
           />
           <View style={styles.profileInfo}>
             <Text style={styles.userName}>{displayName}</Text>

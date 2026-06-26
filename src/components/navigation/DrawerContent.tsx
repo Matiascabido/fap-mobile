@@ -21,7 +21,7 @@ import { getRolLabel } from '../../utils/sessionRole';
 
 export default function DrawerContent(props: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, logout, profilePhotoUrl } = useAuth();
   const {
     hasPermission,
     isGodOrAdmin,
@@ -112,7 +112,12 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
     <View style={styles.container}>
       {/* Header con datos del usuario */}
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-        <Avatar nombre={user?.nombre} apellido={user?.apellido} size={56} />
+        <Avatar
+          nombre={user?.nombre}
+          apellido={user?.apellido}
+          size={56}
+          imageUri={profilePhotoUrl}
+        />
         <Text style={styles.userName} numberOfLines={1}>
           {user?.nombre} {user?.apellido}
         </Text>

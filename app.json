@@ -21,7 +21,9 @@
       "bundleIdentifier": "com.fap.mobile",
       "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "La app usa la cámara para sacar tu foto de perfil.",
+        "NSPhotoLibraryUsageDescription": "La app usa tus fotos para elegir una imagen de perfil."
       }
     },
     "android": {
@@ -34,7 +36,9 @@
       },
       "permissions": [
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -47,7 +51,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "La app usa tus fotos para elegir un fondo personalizado."
+          "photosPermission": "La app usa tus fotos para elegir una imagen de perfil.",
+          "cameraPermission": "La app usa la cámara para sacar tu foto de perfil."
         }
       ]
     ],
